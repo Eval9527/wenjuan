@@ -1,25 +1,54 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createEditorStore } from '@/features/editor-core/store';
+import { createEmptySurvey } from '@/features/survey-schema/factories';
+import type { SurveyDocument } from '@/features/survey-schema/schema';
 import { AiAssistantPanel } from './AiAssistantPanel';
 import { BlockPalette } from './BlockPalette';
-import { EditorTopBar } from './EditorTopBar';
+import { EditorTopBar, type EditorPersistenceState } from './EditorTopBar';
 import { EditorStoreContext } from './editor-store-context';
 import { InspectorPanel } from './InspectorPanel';
 import { SurveyCanvas } from './SurveyCanvas';
 
-export function EditorShell({ surveyId }: { surveyId: string }) {
+export { type EditorPersistenceState } from './EditorTopBar';
+
+export function EditorShell({
+  surveyId,
+  initialSurvey,
+  persistenceState,
+  onSurveyChange
+}: {
+  surveyId: string;
+  initialSurvey?: SurveyDocument;
+  persistenceState?: EditorPersistenceState;
+  onSurveyChange?: (survey: SurveyDocument) => void;
+}) {
   const storeRef = useRef<ReturnType<typeof createEditorStore> | null>(null);
   const [activeTab, setActiveTab] = useState<'ai' | 'inspector'>('ai');
 
   if (!storeRef.current) {
-    storeRef.current = createEditorStore({ surveyId });
+    storeRef.current = createEditorStore({
+      surveyId,
+      initialSurvey: initialSurvey ?? createEmptySurvey({ id: surveyId })
+    });
   }
 
   const activePanel = useMemo(() => {
     return activeTab === 'ai' ? <AiAssistantPanel /> : <InspectorPanel />;
   }, [activeTab]);
+
+  useEffect(() => {
+    if (!onSurveyChange || !storeRef.current) {
+      return;
+    }
+
+    return storeRef.current.subscribe((state, previousState) => {
+      if (state.survey !== previousState.survey) {
+        onSurveyChange(state.survey);
+      }
+    });
+  }, [onSurveyChange]);
 
   return (
     <EditorStoreContext.Provider value={storeRef.current}>
@@ -31,7 +60,7 @@ export function EditorShell({ surveyId }: { surveyId: string }) {
           minHeight: '100vh'
         }}
       >
-        <EditorTopBar surveyId={surveyId} />
+        <EditorTopBar persistenceState={persistenceState} surveyId={surveyId} />
         <BlockPalette />
         <SurveyCanvas />
         <aside

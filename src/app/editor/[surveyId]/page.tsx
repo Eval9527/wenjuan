@@ -1,4 +1,4 @@
-import { EditorShell } from '@/components/editor/EditorShell';
+import { EditorWorkspace } from '@/components/editor/EditorWorkspace';
 
 export default async function EditorPage({
   params
@@ -7,5 +7,5 @@ export default async function EditorPage({
 }) {
   const { surveyId } = await params;
 
-  return <EditorShell surveyId={surveyId} />;
+  return <EditorWorkspace surveyId={surveyId} />;
 }

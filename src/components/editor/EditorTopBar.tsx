@@ -3,7 +3,18 @@
 import { PreviewModeSwitch } from './PreviewModeSwitch';
 import { useEditorStore } from './editor-store-context';
 
-export function EditorTopBar({ surveyId }: { surveyId: string }) {
+export type EditorPersistenceState = {
+  status: 'idle' | 'saving' | 'saved' | 'error';
+  message: string;
+};
+
+export function EditorTopBar({
+  surveyId,
+  persistenceState
+}: {
+  surveyId: string;
+  persistenceState?: EditorPersistenceState;
+}) {
   const surveyTitle = useEditorStore((state) => state.survey.title);
   const canUndo = useEditorStore((state) => state.canUndo);
   const canRedo = useEditorStore((state) => state.canRedo);
@@ -25,6 +36,11 @@ export function EditorTopBar({ surveyId }: { surveyId: string }) {
       <div>
         <strong>{surveyTitle}</strong>
         <p style={{ margin: '4px 0 0', color: '#667085' }}>Survey ID: {surveyId}</p>
+        {persistenceState ? (
+          <p style={{ margin: '4px 0 0', color: persistenceState.status === 'error' ? '#b42318' : '#667085' }}>
+            {persistenceState.message}
+          </p>
+        ) : null}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <button disabled={!canUndo} onClick={undo} type="button">

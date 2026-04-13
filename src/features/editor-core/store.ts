@@ -83,8 +83,14 @@ function moveBlockInList(blocks: SurveyBlock[], blockId: string, targetBlockId?:
   return nextBlocks;
 }
 
-export function createEditorStore({ surveyId }: { surveyId: string }) {
-  const initialSurvey = createEmptySurvey({ id: surveyId });
+export function createEditorStore({
+  surveyId,
+  initialSurvey: providedInitialSurvey
+}: {
+  surveyId: string;
+  initialSurvey?: SurveyDocument;
+}) {
+  const initialSurvey = providedInitialSurvey ?? createEmptySurvey({ id: surveyId });
   const initialHistory = createHistoryState(initialSurvey);
 
   return createStore<InternalEditorState>()((set, get) => ({
