@@ -191,6 +191,16 @@ describe('EditorWorkspace', () => {
         );
       }
 
+      if (url === '/api/surveys/demo/responses' && !init) {
+        return new Response(
+          JSON.stringify({
+            responseCount: 0,
+            responses: []
+          }),
+          { status: 200 }
+        );
+      }
+
       return new Response('Not Found', { status: 404 });
     });
 
@@ -223,6 +233,107 @@ describe('EditorWorkspace', () => {
       ).toBe(true);
     });
 
-    expect(screen.getByText(/已发布 v2/)).toBeInTheDocument();
+    expect(screen.getByText('已发布 v2')).toBeInTheDocument();
+  });
+
+  it('loads and refreshes recent responses for a published survey', async () => {
+    let responseRequestCount = 0;
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = typeof input === 'string' ? input : input instanceof Request ? input.url : String(input);
+
+      if (url === '/api/surveys/demo' && !init) {
+        return new Response(
+          JSON.stringify({
+            surveyId: 'demo',
+            version: 2,
+            responseCount: 1,
+            savedAt: '2026-04-13T00:00:00.000Z',
+            document: {
+              id: 'demo',
+              title: '活动报名表',
+              blocks: [
+                {
+                  id: 'title-1',
+                  type: 'title',
+                  label: '活动报名表',
+                  level: 1
+                }
+              ],
+              settings: { submitLabel: '提交' },
+              meta: {
+                version: 2,
+                createdAt: '2026-04-13T00:00:00.000Z',
+                updatedAt: '2026-04-13T00:00:00.000Z'
+              }
+            },
+            published: {
+              version: 2,
+              publishedAt: '2026-04-13T00:10:00.000Z'
+            }
+          }),
+          { status: 200 }
+        );
+      }
+
+      if (url === '/api/surveys/demo/responses' && !init) {
+        responseRequestCount += 1;
+
+        return new Response(
+          JSON.stringify(
+            responseRequestCount === 1
+              ? {
+                  responseCount: 1,
+                  responses: [
+                    {
+                      id: 'resp-1',
+                      surveyId: 'demo',
+                      version: 2,
+                      submittedAt: '2026-04-13T00:12:00.000Z',
+                      answers: {
+                        'input-1': '张三'
+                      }
+                    }
+                  ]
+                }
+              : {
+                  responseCount: 2,
+                  responses: [
+                    {
+                      id: 'resp-2',
+                      surveyId: 'demo',
+                      version: 2,
+                      submittedAt: '2026-04-13T00:15:00.000Z',
+                      answers: {
+                        'input-1': '李四'
+                      }
+                    },
+                    {
+                      id: 'resp-1',
+                      surveyId: 'demo',
+                      version: 2,
+                      submittedAt: '2026-04-13T00:12:00.000Z',
+                      answers: {
+                        'input-1': '张三'
+                      }
+                    }
+                  ]
+                }
+          ),
+          { status: 200 }
+        );
+      }
+
+      return new Response('Not Found', { status: 404 });
+    });
+
+    render(<EditorWorkspace surveyId="demo" />);
+
+    expect(await screen.findByText(/张三/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '刷新答卷' }));
+
+    expect(await screen.findByText(/李四/)).toBeInTheDocument();
+    expect(screen.getByText('已收集 2 份答卷')).toBeInTheDocument();
   });
 });

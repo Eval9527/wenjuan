@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { EditorShell } from '@/components/editor/EditorShell';
 
@@ -104,6 +104,51 @@ describe('EditorShell', () => {
 
     expect(screen.getByLabelText('选项文案 1')).toHaveValue('非常满意');
     expect(screen.getByRole('radio', { name: '非常满意' })).toBeInTheDocument();
+  });
+
+  it('shows published share tools and recent responses', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(window.navigator, 'clipboard', {
+      value: { writeText },
+      configurable: true
+    });
+
+    render(
+      <EditorShell
+        surveyId="demo"
+        publishState={{
+          status: 'published',
+          message: '已发布 v2',
+          publishedVersion: 2
+        }}
+        recentResponses={[
+          {
+            id: 'resp-1',
+            surveyId: 'demo',
+            version: 2,
+            submittedAt: '2026-04-13T12:00:00.000Z',
+            answers: {
+              'input-1': '张三',
+              'choice-1': ['产品体验', '客服响应']
+            }
+          }
+        ]}
+        responseCount={1}
+      />
+    );
+
+    expect(screen.getByText('发布与答卷')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '复制填写链接' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '刷新答卷' })).toBeInTheDocument();
+    expect(screen.getByText(/张三/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '复制填写链接' }));
+
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith(expect.stringMatching(/\/f\/demo$/));
+    });
+
+    expect(screen.getByText('链接已复制')).toBeInTheDocument();
   });
 
   it('shows ai preview before apply and then updates the canvas', async () => {

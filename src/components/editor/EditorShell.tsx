@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createEditorStore } from '@/features/editor-core/store';
+import type { SurveyResponseRecord } from '@/features/persistence/contracts';
 import { createEmptySurvey } from '@/features/survey-schema/factories';
 import type { SurveyDocument } from '@/features/survey-schema/schema';
 import { AiAssistantPanel } from './AiAssistantPanel';
@@ -9,6 +10,7 @@ import { BlockPalette } from './BlockPalette';
 import { EditorTopBar, type EditorPersistenceState, type EditorPublishState } from './EditorTopBar';
 import { EditorStoreContext } from './editor-store-context';
 import { InspectorPanel } from './InspectorPanel';
+import { SurveyDeliveryPanel, type ResponseFeedState } from './SurveyDeliveryPanel';
 import { SurveyCanvas } from './SurveyCanvas';
 
 export { type EditorPersistenceState } from './EditorTopBar';
@@ -21,6 +23,9 @@ export function EditorShell({
   publishState,
   onPublish,
   responseCount,
+  recentResponses,
+  responseFeedState,
+  onRefreshResponses,
   onSurveyChange
 }: {
   surveyId: string;
@@ -29,6 +34,9 @@ export function EditorShell({
   publishState?: EditorPublishState;
   onPublish?: () => void;
   responseCount?: number;
+  recentResponses?: SurveyResponseRecord[];
+  responseFeedState?: ResponseFeedState;
+  onRefreshResponses?: () => void;
   onSurveyChange?: (survey: SurveyDocument) => void;
 }) {
   const storeRef = useRef<ReturnType<typeof createEditorStore> | null>(null);
@@ -105,6 +113,14 @@ export function EditorShell({
             </button>
           </div>
           {activePanel}
+          <SurveyDeliveryPanel
+            onRefreshResponses={onRefreshResponses}
+            publishedVersion={publishState?.publishedVersion ?? null}
+            recentResponses={recentResponses}
+            responseCount={responseCount ?? 0}
+            responseFeedState={responseFeedState}
+            surveyId={surveyId}
+          />
         </aside>
       </div>
     </EditorStoreContext.Provider>

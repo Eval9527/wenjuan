@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import type { SurveyResponseRecord, SurveyResponseValue } from '@/features/persistence/contracts';
 import type { SurveyDocument } from '@/features/survey-schema/schema';
 
 export type SurveyDraftRecord = {
@@ -15,16 +16,6 @@ export type PublishedSurveyRecord = {
   version: number;
   document: SurveyDocument;
   publishedAt: string;
-};
-
-export type SurveyResponseValue = string | string[];
-
-export type SurveyResponseRecord = {
-  id: string;
-  surveyId: string;
-  version: number;
-  answers: Record<string, SurveyResponseValue>;
-  submittedAt: string;
 };
 
 export type SurveyListItem = {
