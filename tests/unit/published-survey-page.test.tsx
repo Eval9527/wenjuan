@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PublishedSurveyPage } from '@/components/published/PublishedSurveyPage';
 
@@ -57,8 +57,13 @@ describe('PublishedSurveyPage', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: '提交问卷' }));
 
-    expect(await screen.findByText('提交成功，感谢填写')).toBeInTheDocument();
+    const successSection = (await screen.findByText('提交成功，感谢填写')).closest('section');
+
+    expect(successSection).not.toBeNull();
     expect(screen.getByText('已累计收到 1 份答卷。')).toBeInTheDocument();
+    expect(within(successSection as HTMLElement).getByRole('link', { name: '返回工作台' })).toBeInTheDocument();
+    expect(within(successSection as HTMLElement).getByRole('link', { name: '返回编辑器' })).toBeInTheDocument();
+    expect(within(successSection as HTMLElement).getByRole('button', { name: '再填写一份' })).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/surveys/demo/responses',

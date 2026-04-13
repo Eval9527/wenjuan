@@ -218,6 +218,9 @@ describe('EditorShell', () => {
     expect(within(detailSection as HTMLElement).getByText('张三')).toBeInTheDocument();
     expect(within(detailSection as HTMLElement).getByText('关注方向')).toBeInTheDocument();
     expect(within(detailSection as HTMLElement).getByText('产品体验、客服响应')).toBeInTheDocument();
+
+    fireEvent.click(within(detailSection as HTMLElement).getByRole('button', { name: '关闭详情' }));
+    expect(screen.getByText('选择一份答卷查看详情')).toBeInTheDocument();
   });
 
   it('shows ai preview before apply and then updates the canvas', async () => {

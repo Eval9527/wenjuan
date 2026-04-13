@@ -83,6 +83,19 @@ export function PublishedSurveyPage({
           >
             <strong>提交成功，感谢填写</strong>
             <p style={{ margin: '8px 0 0', color: '#667085' }}>已累计收到 {submitted.responseCount} 份答卷。</p>
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 12 }}>
+              <a href="/">返回工作台</a>
+              <a href={`/editor/${surveyId}`}>返回编辑器</a>
+              <button
+                onClick={() => {
+                  setSubmitted(null);
+                  setError(null);
+                }}
+                type="button"
+              >
+                再填写一份
+              </button>
+            </div>
           </section>
         ) : (
           <form

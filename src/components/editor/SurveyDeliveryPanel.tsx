@@ -220,11 +220,16 @@ export function SurveyDeliveryPanel({
                   gap: 10
                 }}
               >
-                <div>
-                  <strong>答卷详情</strong>
-                  <p style={{ margin: '6px 0 0', color: '#667085' }}>
-                    {selectedResponse.id} · 提交于 {formatSubmittedAt(selectedResponse.submittedAt)}
-                  </p>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start' }}>
+                  <div>
+                    <strong>答卷详情</strong>
+                    <p style={{ margin: '6px 0 0', color: '#667085' }}>
+                      {selectedResponse.id} · 提交于 {formatSubmittedAt(selectedResponse.submittedAt)}
+                    </p>
+                  </div>
+                  <button onClick={() => setSelectedResponseId(null)} type="button">
+                    关闭详情
+                  </button>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {Object.entries(selectedResponse.answers).map(([questionId, value]) => (
@@ -244,6 +249,8 @@ export function SurveyDeliveryPanel({
                   ))}
                 </div>
               </section>
+            ) : recentResponses?.length ? (
+              <p style={{ margin: 0, color: '#667085' }}>选择一份答卷查看详情</p>
             ) : null}
           </div>
         </>

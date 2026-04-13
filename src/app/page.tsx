@@ -1,7 +1,11 @@
+import { HomeSurveyActions } from '@/components/home/HomeSurveyActions';
 import { listSurveyDrafts } from '@/features/persistence/repository';
 
 export default async function HomePage() {
   const surveys = await listSurveyDrafts();
+  const totalSurveys = surveys.length;
+  const publishedSurveys = surveys.filter((survey) => Boolean(survey.publishedVersion)).length;
+  const totalResponses = surveys.reduce((sum, survey) => sum + survey.responseCount, 0);
 
   return (
     <main style={{ padding: 32, display: 'flex', flexDirection: 'column', gap: 24 }}>
@@ -13,6 +17,36 @@ export default async function HomePage() {
           </p>
         </div>
         <a href="/new">新建问卷</a>
+      </section>
+
+      <section
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+          gap: 12
+        }}
+      >
+        {[
+          ['问卷总数', totalSurveys],
+          ['已发布', publishedSurveys],
+          ['累计答卷', totalResponses]
+        ].map(([label, value]) => (
+          <article
+            key={label}
+            style={{
+              border: '1px solid #d7deea',
+              borderRadius: 16,
+              padding: 16,
+              background: '#fff',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 8
+            }}
+          >
+            <span style={{ color: '#667085', fontSize: 14 }}>{label}</span>
+            <strong style={{ fontSize: 28, lineHeight: 1 }}>{value}</strong>
+          </article>
+        ))}
       </section>
 
       <section style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -43,10 +77,10 @@ export default async function HomePage() {
                   </p>
                   <p style={{ margin: '6px 0 0', color: '#667085' }}>已收集 {survey.responseCount} 份答卷</p>
                 </div>
-                <div style={{ display: 'flex', gap: 12 }}>
-                  <a href={`/editor/${survey.surveyId}`}>继续编辑</a>
-                  <a href={`/f/${survey.surveyId}`}>填写页面</a>
-                </div>
+                <HomeSurveyActions
+                  published={Boolean(survey.publishedVersion)}
+                  surveyId={survey.surveyId}
+                />
               </article>
             ))}
           </div>
