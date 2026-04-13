@@ -39,6 +39,16 @@ describe('EditorShell', () => {
     expect(within(cards[1]).getByRole('heading', { name: '新标题' })).toBeInTheDocument();
   });
 
+  it('renders drag handles for sortable canvas cards', () => {
+    render(<EditorShell surveyId="demo" />);
+
+    fireEvent.click(screen.getByRole('button', { name: '标题' }));
+    fireEvent.click(screen.getByRole('button', { name: '填写框' }));
+
+    expect(screen.getByRole('button', { name: '拖拽排序 新标题' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '拖拽排序 填写题' })).toBeInTheDocument();
+  });
+
   it('edits the selected block label from inspector', () => {
     render(<EditorShell surveyId="demo" />);
 
