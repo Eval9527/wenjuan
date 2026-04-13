@@ -1,16 +1,11 @@
 import { produce } from 'immer';
 import { createStore } from 'zustand/vanilla';
+import type { AiDraftChangeSet } from '@/features/ai-assistant/types';
 import { createBlock, createEmptySurvey } from '@/features/survey-schema/factories';
 import type { SurveyBlock, SurveyBlockType, SurveyDocument } from '@/features/survey-schema/schema';
 import { commitHistory, createHistoryState, redoHistory, type HistoryState, undoHistory } from './history';
 
 export type PreviewMode = 'desktop' | 'mobile';
-
-export type AiDraftChangeSet = {
-  id: string;
-  basedOnVersion: number;
-  summary: string;
-};
 
 export type EditorStoreState = {
   survey: SurveyDocument;
@@ -25,6 +20,9 @@ export type EditorStoreState = {
   moveBlock: (blockId: string, targetBlockId?: string) => void;
   selectBlock: (blockId: string | null) => void;
   setPreviewMode: (mode: PreviewMode) => void;
+  setPendingChangeSet: (changeSet: AiDraftChangeSet | null) => void;
+  discardPendingChangeSet: () => void;
+  applyPendingChangeSet: () => void;
   undo: () => void;
   redo: () => void;
 };
@@ -44,13 +42,20 @@ function bumpVersion(nextSurvey: SurveyDocument): SurveyDocument {
   };
 }
 
-function withCommittedSurvey(state: InternalEditorState, nextSurvey: SurveyDocument) {
-  const history = commitHistory(state.history, bumpVersion(nextSurvey));
+function withCommittedSurvey(
+  state: InternalEditorState,
+  nextSurvey: SurveyDocument,
+  options?: { keepVersion?: boolean }
+) {
+  const surveyToCommit = options?.keepVersion ? nextSurvey : bumpVersion(nextSurvey);
+  const history = commitHistory(state.history, surveyToCommit);
+
   return {
     survey: history.present,
     history,
     canUndo: history.past.length > 0,
-    canRedo: history.future.length > 0
+    canRedo: history.future.length > 0,
+    pendingChangeSet: null
   };
 }
 
@@ -82,7 +87,7 @@ export function createEditorStore({ surveyId }: { surveyId: string }) {
   const initialSurvey = createEmptySurvey({ id: surveyId });
   const initialHistory = createHistoryState(initialSurvey);
 
-  return createStore<InternalEditorState>()((set) => ({
+  return createStore<InternalEditorState>()((set, get) => ({
     survey: initialSurvey,
     history: initialHistory,
     selectedBlockId: null,
@@ -152,6 +157,20 @@ export function createEditorStore({ surveyId }: { surveyId: string }) {
       }),
     selectBlock: (blockId) => set(() => ({ selectedBlockId: blockId })),
     setPreviewMode: (mode) => set(() => ({ previewMode: mode })),
+    setPendingChangeSet: (changeSet) => set(() => ({ pendingChangeSet: changeSet })),
+    discardPendingChangeSet: () => set(() => ({ pendingChangeSet: null })),
+    applyPendingChangeSet: () =>
+      set((state) => {
+        const changeSet = state.pendingChangeSet;
+        if (!changeSet || changeSet.basedOnVersion !== state.survey.meta.version) {
+          return state;
+        }
+
+        return {
+          ...withCommittedSurvey(state, changeSet.nextDocument, { keepVersion: true }),
+          selectedBlockId: changeSet.nextDocument.blocks.at(-1)?.id ?? null
+        };
+      }),
     undo: () =>
       set((state) => {
         const history = undoHistory(state.history);
