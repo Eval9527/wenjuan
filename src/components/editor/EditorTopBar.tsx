@@ -18,6 +18,7 @@ export function EditorTopBar({
   const surveyTitle = useEditorStore((state) => state.survey.title);
   const canUndo = useEditorStore((state) => state.canUndo);
   const canRedo = useEditorStore((state) => state.canRedo);
+  const updateSurveyTitle = useEditorStore((state) => state.updateSurveyTitle);
   const undo = useEditorStore((state) => state.undo);
   const redo = useEditorStore((state) => state.redo);
 
@@ -33,8 +34,24 @@ export function EditorTopBar({
         background: '#fff'
       }}
     >
-      <div>
-        <strong>{surveyTitle}</strong>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <span style={{ fontSize: 12, color: '#667085' }}>问卷标题</span>
+          <input
+            aria-label="问卷标题"
+            onChange={(event) => updateSurveyTitle(event.target.value)}
+            style={{
+              minWidth: 280,
+              border: '1px solid #d7deea',
+              borderRadius: 12,
+              padding: '10px 14px',
+              fontSize: 18,
+              fontWeight: 700
+            }}
+            type="text"
+            value={surveyTitle}
+          />
+        </label>
         <p style={{ margin: '4px 0 0', color: '#667085' }}>Survey ID: {surveyId}</p>
         {persistenceState ? (
           <p style={{ margin: '4px 0 0', color: persistenceState.status === 'error' ? '#b42318' : '#667085' }}>

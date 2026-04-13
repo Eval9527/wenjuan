@@ -38,4 +38,24 @@ describe('editor store', () => {
     expect(store.getState().survey.blocks).toHaveLength(0);
     expect(store.getState().selectedBlockId).toBeNull();
   });
+
+  it('keeps survey title synced with the primary title block', () => {
+    const store = createEditorStore({ surveyId: 'demo' });
+
+    store.getState().addBlock({ type: 'title' });
+
+    const titleBlock = store.getState().survey.blocks[0];
+    expect(titleBlock.type).toBe('title');
+
+    store.getState().updateBlock(titleBlock.id, { label: '活动报名表' });
+    expect(store.getState().survey.title).toBe('活动报名表');
+
+    store.getState().updateSurveyTitle('线下活动报名表');
+    expect(store.getState().survey.title).toBe('线下活动报名表');
+    expect(store.getState().survey.blocks[0]).toMatchObject({
+      id: titleBlock.id,
+      type: 'title',
+      label: '线下活动报名表'
+    });
+  });
 });

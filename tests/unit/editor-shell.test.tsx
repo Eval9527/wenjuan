@@ -58,8 +58,26 @@ describe('EditorShell', () => {
     const input = screen.getByLabelText('题目标题');
     fireEvent.change(input, { target: { value: '活动报名' } });
 
-    expect(screen.getByDisplayValue('活动报名')).toBeInTheDocument();
+    expect(screen.getByLabelText('题目标题')).toHaveValue('活动报名');
     expect(screen.getByRole('heading', { name: '活动报名' })).toBeInTheDocument();
+  });
+
+  it('syncs survey title between top bar and primary title block', () => {
+    render(<EditorShell surveyId="demo" />);
+
+    fireEvent.click(screen.getByRole('button', { name: '标题' }));
+
+    const surveyTitleInput = screen.getByLabelText('问卷标题');
+    fireEvent.change(surveyTitleInput, { target: { value: '活动报名表' } });
+
+    expect(screen.getByDisplayValue('活动报名表')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '活动报名表' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('tab', { name: '属性面板' }));
+    fireEvent.change(screen.getByLabelText('题目标题'), { target: { value: '线下活动报名表' } });
+
+    expect(screen.getByLabelText('问卷标题')).toHaveValue('线下活动报名表');
+    expect(screen.getByRole('heading', { name: '线下活动报名表' })).toBeInTheDocument();
   });
 
   it('edits input placeholder from inspector', () => {
