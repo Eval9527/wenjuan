@@ -89,5 +89,7 @@ describe('AiChangePreview', () => {
     expect(screen.getByText('建议后的问卷')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '活动报名表' })).toBeInTheDocument();
     expect(screen.getByPlaceholderText('请输入手机号')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '应用修改' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '放弃修改' })).toBeInTheDocument();
   });
 });

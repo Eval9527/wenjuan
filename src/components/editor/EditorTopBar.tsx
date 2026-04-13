@@ -44,11 +44,12 @@ export function EditorTopBar({
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <button disabled={!canUndo} onClick={undo} type="button">
-          Undo
+          撤销
         </button>
         <button disabled={!canRedo} onClick={redo} type="button">
-          Redo
+          重做
         </button>
+        <a href={`/f/${surveyId}`}>打开填写页</a>
         <PreviewModeSwitch />
       </div>
     </header>

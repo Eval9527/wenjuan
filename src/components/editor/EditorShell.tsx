@@ -80,7 +80,7 @@ export function EditorShell({
               role="tab"
               type="button"
             >
-              AI Assistant
+              AI 助手
             </button>
             <button
               aria-selected={activeTab === 'inspector'}
@@ -88,7 +88,7 @@ export function EditorShell({
               role="tab"
               type="button"
             >
-              Inspector
+              属性面板
             </button>
           </div>
           {activePanel}

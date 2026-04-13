@@ -62,7 +62,7 @@ export function InspectorPanel() {
   if (!selectedBlock) {
     return (
       <section style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <h3 style={{ margin: 0 }}>Inspector</h3>
+        <h3 style={{ margin: 0 }}>属性面板</h3>
         <p style={{ margin: 0, color: '#667085' }}>选中一个题目后，可在这里查看并编辑属性。</p>
       </section>
     );
@@ -70,7 +70,7 @@ export function InspectorPanel() {
 
   return (
     <section style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <h3 style={{ margin: 0 }}>Inspector</h3>
+      <h3 style={{ margin: 0 }}>属性面板</h3>
       <Field label="题目标题">
         <input
           aria-label="题目标题"

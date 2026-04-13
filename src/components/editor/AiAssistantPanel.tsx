@@ -43,7 +43,7 @@ export function AiAssistantPanel() {
 
   return (
     <section style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <h3 style={{ margin: 0 }}>AI Assistant</h3>
+      <h3 style={{ margin: 0 }}>AI 助手</h3>
       <p style={{ margin: 0, color: '#667085' }}>描述你想生成或修改的问卷内容，系统会先生成变更预览，再决定是否应用。</p>
       <textarea
         aria-label="AI prompt"

@@ -11,10 +11,10 @@ describe('EditorShell', () => {
     render(<EditorShell surveyId="demo" />);
 
     expect(screen.getByText('题型')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Desktop' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Mobile' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'AI Assistant' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'Inspector' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '桌面预览' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '移动预览' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'AI 助手' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: '属性面板' })).toBeInTheDocument();
   });
 
   it('adds a title block and toggles preview mode', () => {
@@ -23,7 +23,7 @@ describe('EditorShell', () => {
     fireEvent.click(screen.getByRole('button', { name: '标题' }));
     expect(screen.getByRole('heading', { name: '新标题' })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Mobile' }));
+    fireEvent.click(screen.getByRole('button', { name: '移动预览' }));
     expect(screen.getByTestId('preview-frame')).toHaveAttribute('data-preview-mode', 'mobile');
   });
 
@@ -53,7 +53,7 @@ describe('EditorShell', () => {
     render(<EditorShell surveyId="demo" />);
 
     fireEvent.click(screen.getByRole('button', { name: '标题' }));
-    fireEvent.click(screen.getByRole('tab', { name: 'Inspector' }));
+    fireEvent.click(screen.getByRole('tab', { name: '属性面板' }));
 
     const input = screen.getByLabelText('题目标题');
     fireEvent.change(input, { target: { value: '活动报名' } });
@@ -66,7 +66,7 @@ describe('EditorShell', () => {
     render(<EditorShell surveyId="demo" />);
 
     fireEvent.click(screen.getByRole('button', { name: '填写框' }));
-    fireEvent.click(screen.getByRole('tab', { name: 'Inspector' }));
+    fireEvent.click(screen.getByRole('tab', { name: '属性面板' }));
 
     const input = screen.getByLabelText('占位提示');
     fireEvent.change(input, { target: { value: '请输入手机号' } });
@@ -79,7 +79,7 @@ describe('EditorShell', () => {
     render(<EditorShell surveyId="demo" />);
 
     fireEvent.click(screen.getByRole('button', { name: '单选' }));
-    fireEvent.click(screen.getByRole('tab', { name: 'Inspector' }));
+    fireEvent.click(screen.getByRole('tab', { name: '属性面板' }));
 
     const optionInput = screen.getByLabelText('选项文案 1');
     fireEvent.change(optionInput, { target: { value: '非常满意' } });
@@ -161,7 +161,7 @@ describe('EditorShell', () => {
     expect(screen.getByText('addBlock · singleChoice')).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+    fireEvent.click(screen.getByRole('button', { name: '应用修改' }));
 
     expect(screen.getByRole('heading', { name: '满意度调查' })).toBeInTheDocument();
     expect(screen.getByRole('group', { name: '你对产品满意吗？' })).toBeInTheDocument();

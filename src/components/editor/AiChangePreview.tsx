@@ -231,10 +231,10 @@ export function AiChangePreview({ changeSet, currentDocument, onApply, onDiscard
       </div>
       <div style={{ display: 'flex', gap: 8 }}>
         <button onClick={onApply} type="button">
-          Apply
+          应用修改
         </button>
         <button onClick={onDiscard} type="button">
-          Discard
+          放弃修改
         </button>
       </div>
     </section>

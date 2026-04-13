@@ -7,20 +7,20 @@ export function PreviewModeSwitch() {
   const setPreviewMode = useEditorStore((state) => state.setPreviewMode);
 
   return (
-    <div aria-label="Preview mode switch" style={{ display: 'inline-flex', gap: 8 }}>
+    <div aria-label="预览模式切换" style={{ display: 'inline-flex', gap: 8 }}>
       <button
         aria-pressed={previewMode === 'desktop'}
         onClick={() => setPreviewMode('desktop')}
         type="button"
       >
-        Desktop
+        桌面预览
       </button>
       <button
         aria-pressed={previewMode === 'mobile'}
         onClick={() => setPreviewMode('mobile')}
         type="button"
       >
-        Mobile
+        移动预览
       </button>
     </div>
   );
