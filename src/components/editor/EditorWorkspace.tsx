@@ -31,6 +31,7 @@ export function EditorWorkspace({ surveyId }: { surveyId: string }) {
     message: '草稿尚未保存'
   });
   const [publishState, setPublishState] = useState<EditorPublishState>(createPublishState(null));
+  const [responseCount, setResponseCount] = useState(0);
   const latestSurveyRef = useRef<SurveyDocument | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const requestSequenceRef = useRef(0);
@@ -59,6 +60,7 @@ export function EditorWorkspace({ surveyId }: { surveyId: string }) {
           });
           publishedVersionRef.current = null;
           setPublishState(createPublishState(null));
+          setResponseCount(0);
           return;
         }
 
@@ -87,6 +89,7 @@ export function EditorWorkspace({ surveyId }: { surveyId: string }) {
             Boolean(publishedVersionRef.current && document.meta.version > publishedVersionRef.current)
           )
         );
+        setResponseCount(typeof payload.responseCount === 'number' ? payload.responseCount : 0);
       } catch (error) {
         if (cancelled) {
           return;
@@ -101,6 +104,7 @@ export function EditorWorkspace({ surveyId }: { surveyId: string }) {
         });
         publishedVersionRef.current = null;
         setPublishState(createPublishState(null));
+        setResponseCount(0);
       } finally {
         if (!cancelled) {
           setIsLoading(false);
@@ -256,6 +260,7 @@ export function EditorWorkspace({ surveyId }: { surveyId: string }) {
       onSurveyChange={handleSurveyChange}
       persistenceState={persistenceState}
       publishState={publishState}
+      responseCount={responseCount}
       surveyId={surveyId}
     />
   );

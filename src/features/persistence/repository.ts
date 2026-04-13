@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { SurveyDocument } from '@/features/survey-schema/schema';
@@ -16,6 +17,16 @@ export type PublishedSurveyRecord = {
   publishedAt: string;
 };
 
+export type SurveyResponseValue = string | string[];
+
+export type SurveyResponseRecord = {
+  id: string;
+  surveyId: string;
+  version: number;
+  answers: Record<string, SurveyResponseValue>;
+  submittedAt: string;
+};
+
 export type SurveyListItem = {
   surveyId: string;
   title: string;
@@ -23,6 +34,7 @@ export type SurveyListItem = {
   updatedAt: string;
   publishedVersion: number | null;
   publishedAt: string | null;
+  responseCount: number;
 };
 
 type StoredSurveyFile = {
@@ -32,6 +44,7 @@ type StoredSurveyFile = {
   updatedAt: string;
   drafts: SurveyDraftRecord[];
   published: PublishedSurveyRecord | null;
+  responses: SurveyResponseRecord[];
 };
 
 function getDataRoot() {
@@ -92,7 +105,8 @@ export async function saveSurveyDraft(input: {
     currentVersion: Math.max(existing?.currentVersion ?? 0, input.version),
     updatedAt: savedAt,
     drafts,
-    published: existing?.published ?? null
+    published: existing?.published ?? null,
+    responses: existing?.responses ?? []
   });
 
   return nextDraft;
@@ -136,10 +150,44 @@ export async function publishSurveyDraft(surveyId: string) {
     title: latestDraft.document.title,
     currentVersion: Math.max(existing.currentVersion, latestDraft.version),
     updatedAt: existing.updatedAt,
-    published
+    published,
+    responses: existing.responses ?? []
   });
 
   return published;
+}
+
+export async function submitSurveyResponse(
+  surveyId: string,
+  answers: Record<string, SurveyResponseValue>
+) {
+  const existing = await readSurveyFile(surveyId);
+
+  if (!existing?.published) {
+    throw new Error('Published survey not found');
+  }
+
+  const response: SurveyResponseRecord = {
+    id: `resp-${randomUUID()}`,
+    surveyId,
+    version: existing.published.version,
+    answers,
+    submittedAt: new Date().toISOString()
+  };
+
+  const responses = [...(existing.responses ?? []), response];
+
+  await writeSurveyFile({
+    ...existing,
+    responses
+  });
+
+  return response;
+}
+
+export async function listSurveyResponses(surveyId: string) {
+  const existing = await readSurveyFile(surveyId);
+  return [...(existing?.responses ?? [])].sort((left, right) => right.submittedAt.localeCompare(left.submittedAt));
 }
 
 export async function listSurveyDrafts(): Promise<SurveyListItem[]> {
@@ -163,7 +211,8 @@ export async function listSurveyDrafts(): Promise<SurveyListItem[]> {
       currentVersion: survey.currentVersion,
       updatedAt: survey.updatedAt,
       publishedVersion: survey.published?.version ?? null,
-      publishedAt: survey.published?.publishedAt ?? null
+      publishedAt: survey.published?.publishedAt ?? null,
+      responseCount: survey.responses?.length ?? 0
     }))
     .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
 }

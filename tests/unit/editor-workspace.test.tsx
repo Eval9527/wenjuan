@@ -16,6 +16,7 @@ describe('EditorWorkspace', () => {
           JSON.stringify({
             surveyId: 'demo',
             version: 2,
+            responseCount: 2,
             savedAt: '2026-04-13T00:00:00.000Z',
             document: {
               id: 'demo',
@@ -48,6 +49,7 @@ describe('EditorWorkspace', () => {
     expect(screen.getByText('正在加载问卷...')).toBeInTheDocument();
     expect(await screen.findByRole('heading', { name: '已保存标题' })).toBeInTheDocument();
     expect(screen.getByText(/草稿已加载/)).toBeInTheDocument();
+    expect(screen.getByText('已收集 2 份答卷')).toBeInTheDocument();
   });
 
   it('autosaves document changes after local edits', async () => {

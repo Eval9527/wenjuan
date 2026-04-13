@@ -1,5 +1,5 @@
 import { surveyDocumentSchema } from '@/features/survey-schema/schema';
-import { getLatestSurveyDraft, getPublishedSurvey, saveSurveyDraft } from '@/features/persistence/repository';
+import { getLatestSurveyDraft, getPublishedSurvey, listSurveyResponses, saveSurveyDraft } from '@/features/persistence/repository';
 
 export async function GET(_: Request, { params }: { params: Promise<{ surveyId: string }> }) {
   const { surveyId } = await params;
@@ -10,9 +10,11 @@ export async function GET(_: Request, { params }: { params: Promise<{ surveyId: 
   }
 
   const published = await getPublishedSurvey(surveyId);
+  const responses = await listSurveyResponses(surveyId);
 
   return Response.json({
     ...latestDraft,
+    responseCount: responses.length,
     published: published
       ? {
           version: published.version,

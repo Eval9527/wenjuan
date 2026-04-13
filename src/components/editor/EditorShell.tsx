@@ -20,6 +20,7 @@ export function EditorShell({
   persistenceState,
   publishState,
   onPublish,
+  responseCount,
   onSurveyChange
 }: {
   surveyId: string;
@@ -27,6 +28,7 @@ export function EditorShell({
   persistenceState?: EditorPersistenceState;
   publishState?: EditorPublishState;
   onPublish?: () => void;
+  responseCount?: number;
   onSurveyChange?: (survey: SurveyDocument) => void;
 }) {
   const storeRef = useRef<ReturnType<typeof createEditorStore> | null>(null);
@@ -69,6 +71,7 @@ export function EditorShell({
           onPublish={onPublish}
           persistenceState={persistenceState}
           publishState={publishState}
+          responseCount={responseCount}
           surveyId={surveyId}
         />
         <BlockPalette />

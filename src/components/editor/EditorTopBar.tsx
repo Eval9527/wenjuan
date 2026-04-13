@@ -18,12 +18,14 @@ export function EditorTopBar({
   surveyId,
   persistenceState,
   publishState,
-  onPublish
+  onPublish,
+  responseCount
 }: {
   surveyId: string;
   persistenceState?: EditorPersistenceState;
   publishState?: EditorPublishState;
   onPublish?: () => void;
+  responseCount?: number;
 }) {
   const surveyTitle = useEditorStore((state) => state.survey.title);
   const canUndo = useEditorStore((state) => state.canUndo);
@@ -72,6 +74,9 @@ export function EditorTopBar({
           <p style={{ margin: '4px 0 0', color: publishState.status === 'error' ? '#b42318' : '#667085' }}>
             {publishState.message}
           </p>
+        ) : null}
+        {typeof responseCount === 'number' ? (
+          <p style={{ margin: '4px 0 0', color: '#667085' }}>已收集 {responseCount} 份答卷</p>
         ) : null}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>

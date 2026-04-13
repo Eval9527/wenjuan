@@ -102,7 +102,7 @@ describe('EditorShell', () => {
     const optionInput = screen.getByLabelText('选项文案 1');
     fireEvent.change(optionInput, { target: { value: '非常满意' } });
 
-    expect(screen.getByDisplayValue('非常满意')).toBeInTheDocument();
+    expect(screen.getByLabelText('选项文案 1')).toHaveValue('非常满意');
     expect(screen.getByRole('radio', { name: '非常满意' })).toBeInTheDocument();
   });
 

@@ -32,7 +32,12 @@ export function InputBlockRenderer({ block, mode }: BlockRendererProps<InputBloc
     <section className={frameClass(mode)}>
       <label>
         <span>{block.label}</span>
-        <input aria-label={block.label} placeholder={block.placeholder} />
+        <input
+          aria-label={block.label}
+          name={block.id}
+          placeholder={block.placeholder}
+          required={Boolean(block.required)}
+        />
       </label>
       {block.description ? <p>{block.description}</p> : null}
     </section>
@@ -46,7 +51,13 @@ function ChoiceField({ block, mode, type }: { block: SingleChoiceBlock | MultiCh
       {block.description ? <p>{block.description}</p> : null}
       {block.options.map((option) => (
         <label key={option.id}>
-          <input name={block.id} type={type} aria-label={option.text} />
+          <input
+            aria-label={option.text}
+            name={block.id}
+            required={type === 'radio' ? Boolean(block.required) : false}
+            type={type}
+            value={option.text}
+          />
           <span>{option.text}</span>
         </label>
       ))}

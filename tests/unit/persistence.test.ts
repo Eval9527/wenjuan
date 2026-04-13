@@ -7,7 +7,9 @@ import {
   getPublishedSurvey,
   getLatestSurveyDraft,
   listSurveyDrafts,
+  listSurveyResponses,
   publishSurveyDraft,
+  submitSurveyResponse,
   saveSurveyDraft
 } from '@/features/persistence/repository';
 
@@ -117,6 +119,46 @@ describe('survey repository', () => {
         surveyId: 'demo',
         currentVersion: 2,
         publishedVersion: 2
+      })
+    ]);
+  });
+
+  it('stores submitted responses for published surveys and exposes response count', async () => {
+    const survey = {
+      ...createEmptySurvey({ id: 'demo' }),
+      title: '活动报名表',
+      blocks: [
+        { id: 'title-1', type: 'title' as const, label: '活动报名表', level: 1 },
+        { id: 'input-1', type: 'input' as const, label: '姓名', placeholder: '请输入姓名' }
+      ]
+    };
+
+    await saveSurveyDraft({
+      surveyId: 'demo',
+      version: 1,
+      document: survey
+    });
+    await publishSurveyDraft('demo');
+
+    const response = await submitSurveyResponse('demo', {
+      'input-1': '张三'
+    });
+
+    const responses = await listSurveyResponses('demo');
+    const surveys = await listSurveyDrafts();
+
+    expect(response.answers).toEqual({
+      'input-1': '张三'
+    });
+    expect(response.version).toBe(1);
+    expect(responses).toHaveLength(1);
+    expect(responses[0]?.answers).toEqual({
+      'input-1': '张三'
+    });
+    expect(surveys).toEqual([
+      expect.objectContaining({
+        surveyId: 'demo',
+        responseCount: 1
       })
     ]);
   });

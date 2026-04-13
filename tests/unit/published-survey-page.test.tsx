@@ -1,9 +1,24 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PublishedSurveyPage } from '@/components/published/PublishedSurveyPage';
 
 describe('PublishedSurveyPage', () => {
-  it('renders survey content and submits with Chinese actions', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('renders survey content and submits with Chinese actions', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          responseId: 'resp-1',
+          responseCount: 1,
+          submittedAt: '2026-04-13T00:00:00.000Z'
+        }),
+        { status: 200 }
+      )
+    );
+
     render(
       <PublishedSurveyPage
         document={{
@@ -37,8 +52,24 @@ describe('PublishedSurveyPage', () => {
     expect(screen.getByRole('link', { name: '返回编辑器' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '提交问卷' })).toBeInTheDocument();
 
+    fireEvent.change(screen.getByLabelText('手机号'), {
+      target: { value: '13800138000' }
+    });
     fireEvent.click(screen.getByRole('button', { name: '提交问卷' }));
 
-    expect(screen.getByText('提交成功，感谢填写')).toBeInTheDocument();
+    expect(await screen.findByText('提交成功，感谢填写')).toBeInTheDocument();
+    expect(screen.getByText('已累计收到 1 份答卷。')).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/surveys/demo/responses',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          answers: {
+            'input-1': '13800138000'
+          }
+        })
+      })
+    );
   });
 });

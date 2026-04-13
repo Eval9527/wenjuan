@@ -4,6 +4,32 @@ import { useState } from 'react';
 import { SurveyRenderer } from '@/features/renderer/SurveyRenderer';
 import type { SurveyDocument } from '@/features/survey-schema/schema';
 
+function toAnswerPayload(formData: FormData) {
+  const answers: Record<string, string | string[]> = {};
+
+  for (const [field, value] of formData.entries()) {
+    if (typeof value !== 'string') {
+      continue;
+    }
+
+    const existing = answers[field];
+
+    if (existing === undefined) {
+      answers[field] = value;
+      continue;
+    }
+
+    if (Array.isArray(existing)) {
+      answers[field] = [...existing, value];
+      continue;
+    }
+
+    answers[field] = [existing, value];
+  }
+
+  return answers;
+}
+
 export function PublishedSurveyPage({
   surveyId,
   document
@@ -11,7 +37,9 @@ export function PublishedSurveyPage({
   surveyId: string;
   document: SurveyDocument;
 }) {
-  const [submitted, setSubmitted] = useState(false);
+  const [submitted, setSubmitted] = useState<{ responseCount: number } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   return (
     <main
@@ -54,18 +82,47 @@ export function PublishedSurveyPage({
             }}
           >
             <strong>提交成功，感谢填写</strong>
-            <p style={{ margin: '8px 0 0', color: '#667085' }}>本 demo 暂未记录答卷明细，但页面流转已经打通。</p>
+            <p style={{ margin: '8px 0 0', color: '#667085' }}>已累计收到 {submitted.responseCount} 份答卷。</p>
           </section>
         ) : (
           <form
-            onSubmit={(event) => {
+            onSubmit={async (event) => {
               event.preventDefault();
-              setSubmitted(true);
+              setIsSubmitting(true);
+              setError(null);
+
+              try {
+                const response = await fetch(`/api/surveys/${surveyId}/responses`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify({
+                    answers: toAnswerPayload(new FormData(event.currentTarget))
+                  })
+                });
+
+                if (!response.ok) {
+                  throw new Error('Response submit failed');
+                }
+
+                const payload = await response.json();
+                setSubmitted({
+                  responseCount: payload.responseCount
+                });
+              } catch (submitError) {
+                setError(submitError instanceof Error ? '提交失败，请稍后重试' : '提交失败');
+              } finally {
+                setIsSubmitting(false);
+              }
             }}
             style={{ display: 'flex', flexDirection: 'column', gap: 20 }}
           >
             <SurveyRenderer document={document} mode="published-desktop" />
-            <button type="submit">{document.settings.submitLabel}</button>
+            {error ? <p style={{ margin: 0, color: '#b42318' }}>{error}</p> : null}
+            <button disabled={isSubmitting} type="submit">
+              {isSubmitting ? '提交中...' : document.settings.submitLabel}
+            </button>
           </form>
         )}
       </div>
