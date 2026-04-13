@@ -151,6 +151,75 @@ describe('EditorShell', () => {
     expect(screen.getByText('链接已复制')).toBeInTheDocument();
   });
 
+  it('opens response detail view with question labels', () => {
+    render(
+      <EditorShell
+        surveyId="demo"
+        initialSurvey={{
+          id: 'demo',
+          title: '活动报名表',
+          blocks: [
+            {
+              id: 'title-1',
+              type: 'title',
+              label: '活动报名表',
+              level: 1
+            },
+            {
+              id: 'input-1',
+              type: 'input',
+              label: '姓名',
+              placeholder: '请输入姓名'
+            },
+            {
+              id: 'multi-1',
+              type: 'multiChoice',
+              label: '关注方向',
+              options: [
+                { id: 'o1', text: '产品体验' },
+                { id: 'o2', text: '客服响应' }
+              ]
+            }
+          ],
+          settings: { submitLabel: '提交' },
+          meta: {
+            version: 2,
+            createdAt: '2026-04-13T00:00:00.000Z',
+            updatedAt: '2026-04-13T00:00:00.000Z'
+          }
+        }}
+        publishState={{
+          status: 'published',
+          message: '已发布 v2',
+          publishedVersion: 2
+        }}
+        recentResponses={[
+          {
+            id: 'resp-1',
+            surveyId: 'demo',
+            version: 2,
+            submittedAt: '2026-04-13T12:00:00.000Z',
+            answers: {
+              'input-1': '张三',
+              'multi-1': ['产品体验', '客服响应']
+            }
+          }
+        ]}
+        responseCount={1}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: '查看详情 resp-1' }));
+
+    const detailSection = screen.getByText('答卷详情').closest('section');
+
+    expect(detailSection).not.toBeNull();
+    expect(within(detailSection as HTMLElement).getByText('姓名')).toBeInTheDocument();
+    expect(within(detailSection as HTMLElement).getByText('张三')).toBeInTheDocument();
+    expect(within(detailSection as HTMLElement).getByText('关注方向')).toBeInTheDocument();
+    expect(within(detailSection as HTMLElement).getByText('产品体验、客服响应')).toBeInTheDocument();
+  });
+
   it('shows ai preview before apply and then updates the canvas', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,

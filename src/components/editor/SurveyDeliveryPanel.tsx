@@ -1,7 +1,8 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { SurveyResponseRecord, SurveyResponseValue } from '@/features/persistence/contracts';
+import { useEditorStore } from './editor-store-context';
 
 export type ResponseFeedState = {
   status: 'idle' | 'loading' | 'error';
@@ -53,7 +54,18 @@ export function SurveyDeliveryPanel({
   onRefreshResponses?: () => void;
 }) {
   const [copyMessage, setCopyMessage] = useState('');
+  const [selectedResponseId, setSelectedResponseId] = useState<string | null>(null);
   const fillPath = `/f/${surveyId}`;
+  const surveyBlocks = useEditorStore((state) => state.survey.blocks);
+  const questionLabelMap = useMemo(
+    () =>
+      Object.fromEntries(
+        surveyBlocks
+          .filter((block) => block.type !== 'title')
+          .map((block) => [block.id, block.label])
+      ),
+    [surveyBlocks]
+  );
   const fillUrl = useMemo(() => {
     if (typeof window === 'undefined') {
       return fillPath;
@@ -61,6 +73,21 @@ export function SurveyDeliveryPanel({
 
     return new URL(fillPath, window.location.origin).toString();
   }, [fillPath]);
+  const selectedResponse = useMemo(
+    () => recentResponses?.find((response) => response.id === selectedResponseId) ?? null,
+    [recentResponses, selectedResponseId]
+  );
+
+  useEffect(() => {
+    if (!recentResponses?.length) {
+      setSelectedResponseId(null);
+      return;
+    }
+
+    if (selectedResponseId && !recentResponses.some((response) => response.id === selectedResponseId)) {
+      setSelectedResponseId(null);
+    }
+  }, [recentResponses, selectedResponseId]);
 
   async function handleCopy() {
     if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
@@ -165,12 +192,59 @@ export function SurveyDeliveryPanel({
                     <p style={{ margin: 0, color: '#667085' }}>
                       提交于 {formatSubmittedAt(response.submittedAt)} · v{response.version}
                     </p>
+                    <div>
+                      <button
+                        aria-label={`查看详情 ${response.id}`}
+                        onClick={() => setSelectedResponseId(response.id)}
+                        type="button"
+                      >
+                        {selectedResponseId === response.id ? '当前查看中' : '查看详情'}
+                      </button>
+                    </div>
                   </article>
                 ))}
               </div>
             ) : (
               <p style={{ margin: 0, color: '#667085' }}>正在同步最近答卷...</p>
             )}
+
+            {selectedResponse ? (
+              <section
+                style={{
+                  border: '1px solid #d7deea',
+                  borderRadius: 12,
+                  background: '#fff',
+                  padding: 12,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 10
+                }}
+              >
+                <div>
+                  <strong>答卷详情</strong>
+                  <p style={{ margin: '6px 0 0', color: '#667085' }}>
+                    {selectedResponse.id} · 提交于 {formatSubmittedAt(selectedResponse.submittedAt)}
+                  </p>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {Object.entries(selectedResponse.answers).map(([questionId, value]) => (
+                    <div
+                      key={questionId}
+                      style={{
+                        borderTop: '1px solid #eef2f8',
+                        paddingTop: 8,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 4
+                      }}
+                    >
+                      <span style={{ fontSize: 12, color: '#667085' }}>{questionLabelMap[questionId] ?? questionId}</span>
+                      <strong>{formatAnswerValue(value) || '未填写'}</strong>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            ) : null}
           </div>
         </>
       ) : null}
