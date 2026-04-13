@@ -62,6 +62,32 @@ describe('EditorShell', () => {
     expect(screen.getByRole('heading', { name: '活动报名' })).toBeInTheDocument();
   });
 
+  it('edits input placeholder from inspector', () => {
+    render(<EditorShell surveyId="demo" />);
+
+    fireEvent.click(screen.getByRole('button', { name: '填写框' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Inspector' }));
+
+    const input = screen.getByLabelText('占位提示');
+    fireEvent.change(input, { target: { value: '请输入手机号' } });
+
+    expect(screen.getByDisplayValue('请输入手机号')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('请输入手机号')).toBeInTheDocument();
+  });
+
+  it('edits choice option text from inspector', () => {
+    render(<EditorShell surveyId="demo" />);
+
+    fireEvent.click(screen.getByRole('button', { name: '单选' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Inspector' }));
+
+    const optionInput = screen.getByLabelText('选项文案 1');
+    fireEvent.change(optionInput, { target: { value: '非常满意' } });
+
+    expect(screen.getByDisplayValue('非常满意')).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: '非常满意' })).toBeInTheDocument();
+  });
+
   it('shows ai preview before apply and then updates the canvas', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,
