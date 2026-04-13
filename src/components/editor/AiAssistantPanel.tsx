@@ -59,6 +59,7 @@ export function AiAssistantPanel() {
       {pendingChangeSet ? (
         <AiChangePreview
           changeSet={pendingChangeSet}
+          currentDocument={survey}
           onApply={applyPendingChangeSet}
           onDiscard={discardPendingChangeSet}
         />
