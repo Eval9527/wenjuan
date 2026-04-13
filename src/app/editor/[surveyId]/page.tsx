@@ -1,3 +1,5 @@
+import { EditorShell } from '@/components/editor/EditorShell';
+
 export default async function EditorPage({
   params
 }: {
@@ -5,10 +7,5 @@ export default async function EditorPage({
 }) {
   const { surveyId } = await params;
 
-  return (
-    <main style={{ padding: 32 }}>
-      <h1>编辑器</h1>
-      <p>当前问卷：{surveyId}</p>
-    </main>
-  );
+  return <EditorShell surveyId={surveyId} />;
 }

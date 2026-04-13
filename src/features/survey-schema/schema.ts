@@ -64,5 +64,11 @@ export const surveyDocumentSchema = z.object({
   })
 });
 
+export type ChoiceOption = z.infer<typeof choiceOptionSchema>;
+export type TitleBlock = z.infer<typeof titleBlockSchema>;
+export type InputBlock = z.infer<typeof inputBlockSchema>;
+export type SingleChoiceBlock = z.infer<typeof singleChoiceBlockSchema>;
+export type MultiChoiceBlock = z.infer<typeof multiChoiceBlockSchema>;
 export type SurveyDocument = z.infer<typeof surveyDocumentSchema>;
 export type SurveyBlock = z.infer<typeof surveyBlockSchema>;
+export type SurveyBlockType = SurveyBlock['type'];
