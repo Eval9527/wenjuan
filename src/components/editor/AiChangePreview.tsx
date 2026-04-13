@@ -1,6 +1,21 @@
 'use client';
 
-import type { AiDraftChangeSet } from '@/features/ai-assistant/types';
+import type { AiDraftChangeSet, ChangeOperation } from '@/features/ai-assistant/types';
+
+function describeOperation(operation: ChangeOperation) {
+  switch (operation.type) {
+    case 'addBlock':
+      return `${operation.type} · ${operation.block.type}`;
+    case 'removeBlock':
+      return `${operation.type} · ${operation.blockId}`;
+    case 'moveBlock':
+      return `${operation.type} · ${operation.blockId}`;
+    case 'updateBlock':
+      return `${operation.type} · ${operation.blockId}`;
+    default:
+      return operation satisfies never;
+  }
+}
 
 type Props = {
   changeSet: AiDraftChangeSet;
@@ -23,6 +38,11 @@ export function AiChangePreview({ changeSet, onApply, onDiscard }: Props) {
     >
       <strong>{changeSet.summary}</strong>
       <div style={{ color: '#667085' }}>建议操作数：{changeSet.operations.length}</div>
+      <ul style={{ margin: 0, paddingLeft: 18 }}>
+        {changeSet.operations.map((operation, index) => (
+          <li key={`${operation.type}-${index}`}>{describeOperation(operation)}</li>
+        ))}
+      </ul>
       <div style={{ display: 'flex', gap: 8 }}>
         <button onClick={onApply} type="button">
           Apply

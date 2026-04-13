@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { EditorShell } from '@/components/editor/EditorShell';
 
@@ -21,10 +21,22 @@ describe('EditorShell', () => {
     render(<EditorShell surveyId="demo" />);
 
     fireEvent.click(screen.getByRole('button', { name: '标题' }));
-    expect(screen.getByText('新标题')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '新标题' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Mobile' }));
     expect(screen.getByTestId('preview-frame')).toHaveAttribute('data-preview-mode', 'mobile');
+  });
+
+  it('reorders blocks from canvas controls', () => {
+    render(<EditorShell surveyId="demo" />);
+
+    fireEvent.click(screen.getByRole('button', { name: '标题' }));
+    fireEvent.click(screen.getByRole('button', { name: '填写框' }));
+    fireEvent.click(screen.getByRole('button', { name: '上移 填写题' }));
+
+    const cards = screen.getAllByTestId('canvas-block-card');
+    expect(within(cards[0]).getByLabelText('填写题')).toBeInTheDocument();
+    expect(within(cards[1]).getByRole('heading', { name: '新标题' })).toBeInTheDocument();
   });
 
   it('edits the selected block label from inspector', () => {
@@ -37,7 +49,7 @@ describe('EditorShell', () => {
     fireEvent.change(input, { target: { value: '活动报名' } });
 
     expect(screen.getByDisplayValue('活动报名')).toBeInTheDocument();
-    expect(screen.getByText('活动报名')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '活动报名' })).toBeInTheDocument();
   });
 
   it('shows ai preview before apply and then updates the canvas', async () => {
@@ -109,11 +121,13 @@ describe('EditorShell', () => {
     fireEvent.click(screen.getByRole('button', { name: '生成修改建议' }));
 
     expect(await screen.findByText('新增 2 个题目')).toBeInTheDocument();
+    expect(screen.getByText('addBlock · title')).toBeInTheDocument();
+    expect(screen.getByText('addBlock · singleChoice')).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
     fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
 
     expect(screen.getByRole('heading', { name: '满意度调查' })).toBeInTheDocument();
-    expect(screen.getByText('你对产品满意吗？')).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: '你对产品满意吗？' })).toBeInTheDocument();
   });
 });
