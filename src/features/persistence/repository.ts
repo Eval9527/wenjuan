@@ -9,11 +9,20 @@ export type SurveyDraftRecord = {
   savedAt: string;
 };
 
+export type PublishedSurveyRecord = {
+  surveyId: string;
+  version: number;
+  document: SurveyDocument;
+  publishedAt: string;
+};
+
 export type SurveyListItem = {
   surveyId: string;
   title: string;
   currentVersion: number;
   updatedAt: string;
+  publishedVersion: number | null;
+  publishedAt: string | null;
 };
 
 type StoredSurveyFile = {
@@ -22,6 +31,7 @@ type StoredSurveyFile = {
   currentVersion: number;
   updatedAt: string;
   drafts: SurveyDraftRecord[];
+  published: PublishedSurveyRecord | null;
 };
 
 function getDataRoot() {
@@ -81,7 +91,8 @@ export async function saveSurveyDraft(input: {
     title: input.document.title,
     currentVersion: Math.max(existing?.currentVersion ?? 0, input.version),
     updatedAt: savedAt,
-    drafts
+    drafts,
+    published: existing?.published ?? null
   });
 
   return nextDraft;
@@ -95,6 +106,40 @@ export async function getLatestSurveyDraft(surveyId: string) {
   }
 
   return [...existing.drafts].sort((left, right) => right.version - left.version)[0] ?? null;
+}
+
+export async function getPublishedSurvey(surveyId: string) {
+  const existing = await readSurveyFile(surveyId);
+  return existing?.published ?? null;
+}
+
+export async function publishSurveyDraft(surveyId: string) {
+  const existing = await readSurveyFile(surveyId);
+  const latestDraft = existing?.drafts.length
+    ? [...existing.drafts].sort((left, right) => right.version - left.version)[0]
+    : null;
+
+  if (!existing || !latestDraft) {
+    throw new Error('Survey draft not found');
+  }
+
+  const publishedAt = new Date().toISOString();
+  const published: PublishedSurveyRecord = {
+    surveyId,
+    version: latestDraft.version,
+    document: latestDraft.document,
+    publishedAt
+  };
+
+  await writeSurveyFile({
+    ...existing,
+    title: latestDraft.document.title,
+    currentVersion: Math.max(existing.currentVersion, latestDraft.version),
+    updatedAt: existing.updatedAt,
+    published
+  });
+
+  return published;
 }
 
 export async function listSurveyDrafts(): Promise<SurveyListItem[]> {
@@ -116,7 +161,9 @@ export async function listSurveyDrafts(): Promise<SurveyListItem[]> {
       surveyId: survey.surveyId,
       title: survey.title,
       currentVersion: survey.currentVersion,
-      updatedAt: survey.updatedAt
+      updatedAt: survey.updatedAt,
+      publishedVersion: survey.published?.version ?? null,
+      publishedAt: survey.published?.publishedAt ?? null
     }))
     .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
 }

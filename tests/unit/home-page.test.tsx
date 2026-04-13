@@ -5,7 +5,7 @@ import { render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import HomePage from '@/app/page';
 import { createEmptySurvey } from '@/features/survey-schema/factories';
-import { saveSurveyDraft } from '@/features/persistence/repository';
+import { publishSurveyDraft, saveSurveyDraft } from '@/features/persistence/repository';
 
 describe('HomePage', () => {
   let dataDir: string;
@@ -31,11 +31,13 @@ describe('HomePage', () => {
       version: survey.meta.version,
       document: survey
     });
+    await publishSurveyDraft('demo');
 
     render(await HomePage());
 
     expect(screen.getByRole('link', { name: '新建问卷' })).toBeInTheDocument();
     expect(screen.getByText('活动报名表')).toBeInTheDocument();
+    expect(screen.getByText('已发布 v1')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '继续编辑' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '填写页面' })).toBeInTheDocument();
   });

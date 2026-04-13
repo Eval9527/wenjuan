@@ -8,12 +8,22 @@ export type EditorPersistenceState = {
   message: string;
 };
 
+export type EditorPublishState = {
+  status: 'idle' | 'publishing' | 'published' | 'error';
+  message: string;
+  publishedVersion: number | null;
+};
+
 export function EditorTopBar({
   surveyId,
-  persistenceState
+  persistenceState,
+  publishState,
+  onPublish
 }: {
   surveyId: string;
   persistenceState?: EditorPersistenceState;
+  publishState?: EditorPublishState;
+  onPublish?: () => void;
 }) {
   const surveyTitle = useEditorStore((state) => state.survey.title);
   const canUndo = useEditorStore((state) => state.canUndo);
@@ -58,6 +68,11 @@ export function EditorTopBar({
             {persistenceState.message}
           </p>
         ) : null}
+        {publishState ? (
+          <p style={{ margin: '4px 0 0', color: publishState.status === 'error' ? '#b42318' : '#667085' }}>
+            {publishState.message}
+          </p>
+        ) : null}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <button disabled={!canUndo} onClick={undo} type="button">
@@ -65,6 +80,9 @@ export function EditorTopBar({
         </button>
         <button disabled={!canRedo} onClick={redo} type="button">
           重做
+        </button>
+        <button disabled={!onPublish || publishState?.status === 'publishing'} onClick={onPublish} type="button">
+          {publishState?.status === 'publishing' ? '发布中...' : '发布问卷'}
         </button>
         <a href={`/f/${surveyId}`}>打开填写页</a>
         <PreviewModeSwitch />

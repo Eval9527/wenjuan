@@ -38,6 +38,9 @@ export default async function HomePage() {
                   <p style={{ margin: '6px 0 0', color: '#667085' }}>
                     {survey.surveyId} · 当前版本 v{survey.currentVersion}
                   </p>
+                  <p style={{ margin: '6px 0 0', color: '#667085' }}>
+                    {survey.publishedVersion ? `已发布 v${survey.publishedVersion}` : '未发布'}
+                  </p>
                 </div>
                 <div style={{ display: 'flex', gap: 12 }}>
                   <a href={`/editor/${survey.surveyId}`}>继续编辑</a>

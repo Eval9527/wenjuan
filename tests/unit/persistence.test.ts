@@ -4,8 +4,10 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createEmptySurvey } from '@/features/survey-schema/factories';
 import {
+  getPublishedSurvey,
   getLatestSurveyDraft,
   listSurveyDrafts,
+  publishSurveyDraft,
   saveSurveyDraft
 } from '@/features/persistence/repository';
 
@@ -71,6 +73,50 @@ describe('survey repository', () => {
         surveyId: 'demo',
         title: '活动报名表',
         currentVersion: 2
+      })
+    ]);
+  });
+
+  it('publishes a snapshot and keeps the public version stable until republish', async () => {
+    const initial = createEmptySurvey({ id: 'demo' });
+    const updated = {
+      ...initial,
+      title: '活动报名表',
+      meta: {
+        ...initial.meta,
+        version: 2
+      }
+    };
+
+    await saveSurveyDraft({
+      surveyId: 'demo',
+      version: 1,
+      document: initial
+    });
+
+    const firstPublish = await publishSurveyDraft('demo');
+    expect(firstPublish.version).toBe(1);
+    expect((await getPublishedSurvey('demo'))?.document.title).toBe('未命名问卷');
+
+    await saveSurveyDraft({
+      surveyId: 'demo',
+      version: 2,
+      document: updated
+    });
+
+    expect((await getLatestSurveyDraft('demo'))?.version).toBe(2);
+    expect((await getPublishedSurvey('demo'))?.version).toBe(1);
+
+    const secondPublish = await publishSurveyDraft('demo');
+    const surveys = await listSurveyDrafts();
+
+    expect(secondPublish.version).toBe(2);
+    expect((await getPublishedSurvey('demo'))?.document.title).toBe('活动报名表');
+    expect(surveys).toEqual([
+      expect.objectContaining({
+        surveyId: 'demo',
+        currentVersion: 2,
+        publishedVersion: 2
       })
     ]);
   });

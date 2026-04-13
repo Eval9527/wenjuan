@@ -1,11 +1,27 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { EditorShell, type EditorPersistenceState } from '@/components/editor/EditorShell';
+import { EditorShell, type EditorPersistenceState, type EditorPublishState } from '@/components/editor/EditorShell';
 import { createEmptySurvey } from '@/features/survey-schema/factories';
 import { surveyDocumentSchema, type SurveyDocument } from '@/features/survey-schema/schema';
 
 const AUTOSAVE_DELAY = 800;
+
+function createPublishState(publishedVersion: number | null, hasUnpublishedChanges = false): EditorPublishState {
+  if (!publishedVersion) {
+    return {
+      status: 'idle',
+      message: '尚未发布',
+      publishedVersion: null
+    };
+  }
+
+  return {
+    status: 'published',
+    message: hasUnpublishedChanges ? `已发布 v${publishedVersion}，当前草稿待重新发布` : `已发布 v${publishedVersion}`,
+    publishedVersion
+  };
+}
 
 export function EditorWorkspace({ surveyId }: { surveyId: string }) {
   const [initialSurvey, setInitialSurvey] = useState<SurveyDocument | null>(null);
@@ -14,9 +30,11 @@ export function EditorWorkspace({ surveyId }: { surveyId: string }) {
     status: 'idle',
     message: '草稿尚未保存'
   });
+  const [publishState, setPublishState] = useState<EditorPublishState>(createPublishState(null));
   const latestSurveyRef = useRef<SurveyDocument | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const requestSequenceRef = useRef(0);
+  const publishedVersionRef = useRef<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -39,6 +57,8 @@ export function EditorWorkspace({ surveyId }: { surveyId: string }) {
             status: 'idle',
             message: '新问卷，等待首次保存'
           });
+          publishedVersionRef.current = null;
+          setPublishState(createPublishState(null));
           return;
         }
 
@@ -55,10 +75,18 @@ export function EditorWorkspace({ surveyId }: { surveyId: string }) {
 
         setInitialSurvey(document);
         latestSurveyRef.current = document;
+        publishedVersionRef.current =
+          typeof payload.published?.version === 'number' ? payload.published.version : null;
         setPersistenceState({
           status: 'saved',
           message: '草稿已加载'
         });
+        setPublishState(
+          createPublishState(
+            publishedVersionRef.current,
+            Boolean(publishedVersionRef.current && document.meta.version > publishedVersionRef.current)
+          )
+        );
       } catch (error) {
         if (cancelled) {
           return;
@@ -71,6 +99,8 @@ export function EditorWorkspace({ surveyId }: { surveyId: string }) {
           status: 'error',
           message: error instanceof Error ? '加载失败，已回退为空白问卷' : '加载失败'
         });
+        publishedVersionRef.current = null;
+        setPublishState(createPublishState(null));
       } finally {
         if (!cancelled) {
           setIsLoading(false);
@@ -96,6 +126,12 @@ export function EditorWorkspace({ surveyId }: { surveyId: string }) {
         status: 'saving',
         message: `正在保存 v${survey.meta.version}...`
       });
+      setPublishState(
+        createPublishState(
+          publishedVersionRef.current,
+          Boolean(publishedVersionRef.current && survey.meta.version > publishedVersionRef.current)
+        )
+      );
 
       if (saveTimerRef.current) {
         clearTimeout(saveTimerRef.current);
@@ -144,6 +180,56 @@ export function EditorWorkspace({ surveyId }: { surveyId: string }) {
     [surveyId]
   );
 
+  const handlePublish = useCallback(async () => {
+    setPublishState((current) => ({
+      ...current,
+      status: 'publishing',
+      message: '正在发布...'
+    }));
+
+    try {
+      if (latestSurveyRef.current) {
+        const saveResponse = await fetch(`/api/surveys/${surveyId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            document: latestSurveyRef.current
+          })
+        });
+
+        if (!saveResponse.ok) {
+          throw new Error('Survey save before publish failed');
+        }
+
+        const savedPayload = await saveResponse.json();
+        setPersistenceState({
+          status: 'saved',
+          message: `已保存 v${savedPayload.version}`
+        });
+      }
+
+      const response = await fetch(`/api/surveys/${surveyId}/publish`, {
+        method: 'POST'
+      });
+
+      if (!response.ok) {
+        throw new Error('Survey publish failed');
+      }
+
+      const payload = await response.json();
+      publishedVersionRef.current = payload.version;
+      setPublishState(createPublishState(payload.version));
+    } catch (error) {
+      setPublishState((current) => ({
+        ...current,
+        status: 'error',
+        message: error instanceof Error ? '发布失败，请稍后重试' : '发布失败'
+      }));
+    }
+  }, [surveyId]);
+
   if (isLoading || !initialSurvey) {
     return (
       <main
@@ -166,8 +252,10 @@ export function EditorWorkspace({ surveyId }: { surveyId: string }) {
   return (
     <EditorShell
       initialSurvey={initialSurvey}
+      onPublish={handlePublish}
       onSurveyChange={handleSurveyChange}
       persistenceState={persistenceState}
+      publishState={publishState}
       surveyId={surveyId}
     />
   );

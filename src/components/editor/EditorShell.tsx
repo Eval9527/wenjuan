@@ -6,22 +6,27 @@ import { createEmptySurvey } from '@/features/survey-schema/factories';
 import type { SurveyDocument } from '@/features/survey-schema/schema';
 import { AiAssistantPanel } from './AiAssistantPanel';
 import { BlockPalette } from './BlockPalette';
-import { EditorTopBar, type EditorPersistenceState } from './EditorTopBar';
+import { EditorTopBar, type EditorPersistenceState, type EditorPublishState } from './EditorTopBar';
 import { EditorStoreContext } from './editor-store-context';
 import { InspectorPanel } from './InspectorPanel';
 import { SurveyCanvas } from './SurveyCanvas';
 
 export { type EditorPersistenceState } from './EditorTopBar';
+export { type EditorPublishState } from './EditorTopBar';
 
 export function EditorShell({
   surveyId,
   initialSurvey,
   persistenceState,
+  publishState,
+  onPublish,
   onSurveyChange
 }: {
   surveyId: string;
   initialSurvey?: SurveyDocument;
   persistenceState?: EditorPersistenceState;
+  publishState?: EditorPublishState;
+  onPublish?: () => void;
   onSurveyChange?: (survey: SurveyDocument) => void;
 }) {
   const storeRef = useRef<ReturnType<typeof createEditorStore> | null>(null);
@@ -60,7 +65,12 @@ export function EditorShell({
           minHeight: '100vh'
         }}
       >
-        <EditorTopBar persistenceState={persistenceState} surveyId={surveyId} />
+        <EditorTopBar
+          onPublish={onPublish}
+          persistenceState={persistenceState}
+          publishState={publishState}
+          surveyId={surveyId}
+        />
         <BlockPalette />
         <SurveyCanvas />
         <aside

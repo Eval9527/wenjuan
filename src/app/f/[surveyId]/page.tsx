@@ -1,6 +1,5 @@
-import { notFound } from 'next/navigation';
 import { PublishedSurveyPage } from '@/components/published/PublishedSurveyPage';
-import { getLatestSurveyDraft } from '@/features/persistence/repository';
+import { getPublishedSurvey } from '@/features/persistence/repository';
 
 export default async function FillSurveyPage({
   params
@@ -8,11 +7,28 @@ export default async function FillSurveyPage({
   params: Promise<{ surveyId: string }>;
 }) {
   const { surveyId } = await params;
-  const latestDraft = await getLatestSurveyDraft(surveyId);
+  const publishedSurvey = await getPublishedSurvey(surveyId);
 
-  if (!latestDraft) {
-    notFound();
+  if (!publishedSurvey) {
+    return (
+      <main
+        style={{
+          minHeight: '100vh',
+          display: 'grid',
+          placeItems: 'center',
+          padding: 24
+        }}
+      >
+        <div style={{ maxWidth: 420, textAlign: 'center' }}>
+          <strong>问卷尚未发布</strong>
+          <p style={{ margin: '8px 0 0', color: '#667085' }}>请先返回编辑器点击“发布问卷”，再打开填写页进行演示。</p>
+          <p style={{ margin: '8px 0 0' }}>
+            <a href={`/editor/${surveyId}`}>返回编辑器</a>
+          </p>
+        </div>
+      </main>
+    );
   }
 
-  return <PublishedSurveyPage document={latestDraft.document} surveyId={surveyId} />;
+  return <PublishedSurveyPage document={publishedSurvey.document} surveyId={surveyId} />;
 }
