@@ -140,7 +140,7 @@ describe('EditorShell', () => {
     expect(screen.getByText('发布与答卷')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '复制填写链接' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '刷新答卷' })).toBeInTheDocument();
-    expect(screen.getByText(/张三/)).toBeInTheDocument();
+    expect(screen.getByText('张三 · 产品体验、客服响应')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: '复制填写链接' }));
 
