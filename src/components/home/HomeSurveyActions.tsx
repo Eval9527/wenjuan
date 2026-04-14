@@ -4,12 +4,15 @@ import { useMemo, useState } from 'react';
 
 export function HomeSurveyActions({
   surveyId,
-  published
+  published,
+  responseCount
 }: {
   surveyId: string;
   published: boolean;
+  responseCount: number;
 }) {
   const [copyMessage, setCopyMessage] = useState('');
+  const isLocked = published && responseCount > 0;
   const fillPath = `/f/${surveyId}`;
   const fillUrl = useMemo(() => {
     if (typeof window === 'undefined') {
@@ -21,34 +24,42 @@ export function HomeSurveyActions({
 
   async function handleCopy() {
     if (!navigator.clipboard?.writeText) {
-      setCopyMessage('当前环境不支持自动复制');
+      setCopyMessage('不支持自动复制');
+      setTimeout(() => setCopyMessage(''), 2000);
       return;
     }
 
     try {
       await navigator.clipboard.writeText(fillUrl);
-      setCopyMessage('链接已复制');
+      setCopyMessage('已复制');
+      setTimeout(() => setCopyMessage(''), 2000);
     } catch (error) {
-      setCopyMessage(error instanceof Error ? '复制失败，请手动复制链接' : '复制失败');
+      setCopyMessage('复制失败');
+      setTimeout(() => setCopyMessage(''), 2000);
     }
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
-      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-        <a href={`/editor/${surveyId}`}>继续编辑</a>
-        {published ? <a href={fillPath}>填写页面</a> : null}
-        {published ? (
-          <button onClick={handleCopy} type="button">
-            复制填写链接
-          </button>
-        ) : null}
-      </div>
-      {published ? (
-        copyMessage ? <p style={{ margin: 0, color: '#667085' }}>{copyMessage}</p> : null
-      ) : (
-        <p style={{ margin: 0, color: '#667085' }}>待发布后可分享</p>
+    <div className="flex items-center justify-end gap-2">
+      {copyMessage && (
+        <span className="text-[13px] text-[#027a48] mr-2">{copyMessage}</span>
       )}
+      
+      {published ? (
+        <button className="ui-btn ui-btn-ghost" onClick={handleCopy} type="button">
+          复制链接
+        </button>
+      ) : null}
+
+      {published ? (
+        <a className="ui-btn ui-btn-secondary" href={fillPath}>
+          填写页
+        </a>
+      ) : null}
+
+      <a className="ui-btn ui-btn-primary" href={`/editor/${surveyId}`}>
+        {isLocked ? '查看分析' : '继续编辑'}
+      </a>
     </div>
   );
 }

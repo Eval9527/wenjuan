@@ -94,7 +94,7 @@ describe('EditorWorkspace', () => {
 
     render(<EditorWorkspace surveyId="demo" />);
 
-    await screen.findByText('题型');
+    await screen.findByText('添加题目');
 
     fireEvent.click(screen.getByRole('button', { name: '标题' }));
     await act(async () => {

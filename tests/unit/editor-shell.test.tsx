@@ -10,11 +10,16 @@ describe('EditorShell', () => {
   it('renders palette, preview controls, and side panel tabs', () => {
     render(<EditorShell surveyId="demo" />);
 
-    expect(screen.getByText('题型')).toBeInTheDocument();
+    expect(screen.getByText('添加题目')).toBeInTheDocument();
+    expect(screen.getByText('文本显示')).toBeInTheDocument();
+    expect(screen.getByText('用户输入')).toBeInTheDocument();
+    expect(screen.getByText('用户选择')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '桌面预览' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '移动预览' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'AI 助手' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: '属性面板' })).toBeInTheDocument();
+    expect(screen.queryByText(/Survey ID/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: '打开填写页' })).not.toBeInTheDocument();
   });
 
   it('adds a title block and toggles preview mode', () => {
@@ -32,11 +37,15 @@ describe('EditorShell', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '标题' }));
     fireEvent.click(screen.getByRole('button', { name: '填写框' }));
-    fireEvent.click(screen.getByRole('button', { name: '上移 填写题' }));
 
     const cards = screen.getAllByTestId('canvas-block-card');
-    expect(within(cards[0]).getByLabelText('填写题')).toBeInTheDocument();
-    expect(within(cards[1]).getByRole('heading', { name: '新标题' })).toBeInTheDocument();
+    fireEvent.click(within(cards[1]).getByLabelText('填写题'));
+    fireEvent.click(screen.getByRole('button', { name: '上移当前题目' }));
+
+    const reorderedCards = screen.getAllByTestId('canvas-block-card');
+
+    expect(within(reorderedCards[0]).getByLabelText('填写题')).toBeInTheDocument();
+    expect(within(reorderedCards[1]).getByRole('heading', { name: '新标题' })).toBeInTheDocument();
   });
 
   it('renders drag handles for sortable canvas cards', () => {
@@ -47,6 +56,25 @@ describe('EditorShell', () => {
 
     expect(screen.getByRole('button', { name: '拖拽排序 新标题' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '拖拽排序 填写题' })).toBeInTheDocument();
+  });
+
+  it('locks editing when a published survey already has responses', () => {
+    render(
+      <EditorShell
+        surveyId="demo"
+        publishState={{
+          status: 'published',
+          message: '已发布 v2',
+          publishedVersion: 2
+        }}
+        responseCount={1}
+      />
+    );
+
+    expect(screen.getByText('已收集答卷，当前问卷已锁定')).toBeInTheDocument();
+    expect(screen.getByLabelText('问卷标题')).toBeDisabled();
+    expect(screen.getByRole('button', { name: '标题' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '发布问卷' })).toBeDisabled();
   });
 
   it('edits the selected block label from inspector', () => {
@@ -221,6 +249,113 @@ describe('EditorShell', () => {
 
     fireEvent.click(within(detailSection as HTMLElement).getByRole('button', { name: '关闭详情' }));
     expect(screen.getByText('选择一份答卷查看详情')).toBeInTheDocument();
+  });
+
+  it('shows top bar share actions when survey is published', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(window.navigator, 'clipboard', {
+      value: { writeText },
+      configurable: true
+    });
+
+    render(
+      <EditorShell
+        surveyId="demo"
+        publishState={{
+          status: 'published',
+          message: '已发布 v2',
+          publishedVersion: 2
+        }}
+        responseCount={3}
+      />
+    );
+
+    expect(screen.getByText('公开填写中')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '复制分享链接' }));
+
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith(expect.stringMatching(/\/f\/demo$/));
+    });
+
+    expect(screen.getByText('分享链接已复制')).toBeInTheDocument();
+  });
+
+  it('supports quick ai prompts for demo flow', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        id: 'change-quick',
+        basedOnVersion: 1,
+        userIntent: '生成一个活动报名问卷，包含标题、姓名填写、单选参与场次',
+        summary: '新增 3 个题目',
+        operations: [],
+        nextDocument: {
+          id: 'demo',
+          title: '活动报名问卷',
+          blocks: [],
+          settings: { submitLabel: '提交' },
+          meta: {
+            version: 2,
+            createdAt: '2026-04-13T00:00:00.000Z',
+            updatedAt: '2026-04-13T00:00:00.000Z'
+          }
+        }
+      })
+    } as Response);
+
+    render(<EditorShell surveyId="demo" />);
+
+    fireEvent.click(screen.getByRole('button', { name: '活动报名' }));
+    expect(screen.getByLabelText('AI prompt')).toHaveValue('生成一个活动报名问卷，包含标题、姓名填写、单选参与场次');
+
+    fireEvent.click(screen.getByRole('button', { name: '直接生成建议' }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/ai/changes',
+        expect.objectContaining({
+          method: 'POST',
+          body: expect.stringContaining('活动报名问卷')
+        })
+      );
+    });
+  });
+
+  it('shows response inbox summary for recent responses', () => {
+    render(
+      <EditorShell
+        surveyId="demo"
+        publishState={{
+          status: 'published',
+          message: '已发布 v3',
+          publishedVersion: 3
+        }}
+        recentResponses={[
+          {
+            id: 'resp-3',
+            surveyId: 'demo',
+            version: 3,
+            submittedAt: '2026-04-13T12:20:00.000Z',
+            answers: {
+              'input-1': '王五'
+            }
+          },
+          {
+            id: 'resp-2',
+            surveyId: 'demo',
+            version: 3,
+            submittedAt: '2026-04-13T12:10:00.000Z',
+            answers: {
+              'input-1': '李四'
+            }
+          }
+        ]}
+        responseCount={8}
+      />
+    );
+
+    expect(screen.getByText('最近 2 条 · 共 8 份答卷')).toBeInTheDocument();
+    expect(screen.getByText('已为你展示最新提交的答卷，可继续刷新获取最新状态。')).toBeInTheDocument();
   });
 
   it('shows ai preview before apply and then updates the canvas', async () => {

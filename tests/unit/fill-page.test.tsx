@@ -36,6 +36,8 @@ describe('FillSurveyPage', () => {
     );
 
     expect(screen.getByText('问卷尚未发布')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '返回编辑器' })).toHaveAttribute('href', '/editor/demo');
+    expect(screen.getByRole('link', { name: '返回工作台' })).toHaveAttribute('href', '/');
   });
 
   it('renders the published snapshot instead of newer unpublished drafts', async () => {

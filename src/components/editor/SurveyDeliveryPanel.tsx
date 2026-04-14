@@ -73,6 +73,7 @@ export function SurveyDeliveryPanel({
 
     return new URL(fillPath, window.location.origin).toString();
   }, [fillPath]);
+  const recentResponseCount = recentResponses?.length ?? 0;
   const selectedResponse = useMemo(
     () => recentResponses?.find((response) => response.id === selectedResponseId) ?? null,
     [recentResponses, selectedResponseId]
@@ -104,32 +105,18 @@ export function SurveyDeliveryPanel({
   }
 
   return (
-    <section
-      style={{
-        border: '1px solid #d7deea',
-        borderRadius: 16,
-        padding: 16,
-        background: '#f8fafc',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 12
-      }}
-    >
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start' }}>
+    <section className="ui-panel-soft flex flex-col gap-4 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h3 style={{ margin: 0 }}>发布与答卷</h3>
-          <p style={{ margin: '6px 0 0', color: '#667085' }}>
+          <h3 className="ui-section-title text-[18px]">发布与答卷</h3>
+          <p className="mt-2 mb-0 text-sm leading-6 text-[#667085]">
             {publishedVersion
               ? `已发布 v${publishedVersion}，现在可以分享填写链接并查看最近答卷。`
               : '发布后即可获得填写链接，并在这里查看最近答卷。'}
           </p>
         </div>
         {publishedVersion ? (
-          <button
-            disabled={responseFeedState?.status === 'loading'}
-            onClick={onRefreshResponses}
-            type="button"
-          >
+          <button className="ui-btn ui-btn-secondary" disabled={responseFeedState?.status === 'loading'} onClick={onRefreshResponses} type="button">
             {responseFeedState?.status === 'loading' ? '刷新中...' : '刷新答卷'}
           </button>
         ) : null}
@@ -137,64 +124,44 @@ export function SurveyDeliveryPanel({
 
       {publishedVersion ? (
         <>
-          <div
-            style={{
-              border: '1px solid #d7deea',
-              borderRadius: 12,
-              background: '#fff',
-              padding: 12,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 8
-            }}
-          >
-            <span style={{ fontSize: 12, color: '#667085' }}>填写链接</span>
-            <code style={{ wordBreak: 'break-all' }}>{fillPath}</code>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <a href={fillPath}>打开填写页</a>
-              <button onClick={handleCopy} type="button">
+          <div className="ui-panel flex flex-col gap-3 p-4">
+            <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[#667085]">填写链接</span>
+            <code className="rounded-2xl bg-[#f8fafc] px-3 py-3 text-sm text-[#101828]">{fillPath}</code>
+            <div className="flex flex-wrap gap-2">
+              <a className="ui-btn ui-btn-secondary" href={fillPath}>
+                打开填写页
+              </a>
+              <button className="ui-btn ui-btn-ghost" onClick={handleCopy} type="button">
                 复制填写链接
               </button>
             </div>
-            {copyMessage ? <p style={{ margin: 0, color: '#667085' }}>{copyMessage}</p> : null}
+            {copyMessage ? <p className="m-0 text-sm text-[#667085]">{copyMessage}</p> : null}
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <strong>最近答卷 · 已收集 {responseCount} 份</strong>
+          <div className="flex flex-col gap-3">
+            <strong className="text-[15px] leading-6 text-[#101828]">
+              {recentResponseCount ? `最近 ${recentResponseCount} 条 · 共 ${responseCount} 份答卷` : `最近答卷 · 已收集 ${responseCount} 份`}
+            </strong>
             {responseFeedState?.message ? (
-              <p
-                style={{
-                  margin: 0,
-                  color: responseFeedState.status === 'error' ? '#b42318' : '#667085'
-                }}
-              >
+              <p className={`m-0 text-sm ${responseFeedState.status === 'error' ? 'text-[#b42318]' : 'text-[#667085]'}`}>
                 {responseFeedState.message}
               </p>
+            ) : recentResponseCount ? (
+              <p className="m-0 text-sm text-[#667085]">已为你展示最新提交的答卷，可继续刷新获取最新状态。</p>
             ) : null}
+
             {responseCount === 0 ? (
-              <p style={{ margin: 0, color: '#667085' }}>还没有收到答卷，先把链接发出去试试。</p>
+              <p className="m-0 text-sm text-[#667085]">还没有收到答卷，先把链接发出去试试。</p>
             ) : recentResponses?.length ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div className="flex flex-col gap-3">
                 {recentResponses.map((response) => (
-                  <article
-                    key={response.id}
-                    style={{
-                      border: '1px solid #d7deea',
-                      borderRadius: 12,
-                      background: '#fff',
-                      padding: 12,
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: 6
-                    }}
-                  >
-                    <strong>{getResponsePreview(response)}</strong>
-                    <p style={{ margin: 0, color: '#667085' }}>
-                      提交于 {formatSubmittedAt(response.submittedAt)} · v{response.version}
-                    </p>
+                  <article className="ui-panel flex flex-col gap-2 p-4" key={response.id}>
+                    <strong className="text-[15px] leading-6 text-[#101828]">{getResponsePreview(response)}</strong>
+                    <p className="m-0 text-sm text-[#667085]">提交于 {formatSubmittedAt(response.submittedAt)} · v{response.version}</p>
                     <div>
                       <button
                         aria-label={`查看详情 ${response.id}`}
+                        className="ui-btn ui-btn-secondary"
                         onClick={() => setSelectedResponseId(response.id)}
                         type="button"
                       >
@@ -205,52 +172,33 @@ export function SurveyDeliveryPanel({
                 ))}
               </div>
             ) : (
-              <p style={{ margin: 0, color: '#667085' }}>正在同步最近答卷...</p>
+              <p className="m-0 text-sm text-[#667085]">正在同步最近答卷...</p>
             )}
 
             {selectedResponse ? (
-              <section
-                style={{
-                  border: '1px solid #d7deea',
-                  borderRadius: 12,
-                  background: '#fff',
-                  padding: 12,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 10
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start' }}>
+              <section className="ui-panel flex flex-col gap-4 p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <strong>答卷详情</strong>
-                    <p style={{ margin: '6px 0 0', color: '#667085' }}>
+                    <strong className="text-[15px] leading-6 text-[#101828]">答卷详情</strong>
+                    <p className="mt-1 mb-0 text-sm text-[#667085]">
                       {selectedResponse.id} · 提交于 {formatSubmittedAt(selectedResponse.submittedAt)}
                     </p>
                   </div>
-                  <button onClick={() => setSelectedResponseId(null)} type="button">
+                  <button className="ui-btn ui-btn-ghost" onClick={() => setSelectedResponseId(null)} type="button">
                     关闭详情
                   </button>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div className="flex flex-col gap-3">
                   {Object.entries(selectedResponse.answers).map(([questionId, value]) => (
-                    <div
-                      key={questionId}
-                      style={{
-                        borderTop: '1px solid #eef2f8',
-                        paddingTop: 8,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: 4
-                      }}
-                    >
-                      <span style={{ fontSize: 12, color: '#667085' }}>{questionLabelMap[questionId] ?? questionId}</span>
-                      <strong>{formatAnswerValue(value) || '未填写'}</strong>
+                    <div className="border-t border-[#eef2f6] pt-3" key={questionId}>
+                      <span className="block text-xs font-medium text-[#667085]">{questionLabelMap[questionId] ?? questionId}</span>
+                      <strong className="mt-1 block text-[15px] leading-6 text-[#101828]">{formatAnswerValue(value) || '未填写'}</strong>
                     </div>
                   ))}
                 </div>
               </section>
             ) : recentResponses?.length ? (
-              <p style={{ margin: 0, color: '#667085' }}>选择一份答卷查看详情</p>
+              <p className="m-0 text-sm text-[#667085]">选择一份答卷查看详情</p>
             ) : null}
           </div>
         </>

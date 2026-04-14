@@ -16,6 +16,31 @@ import { SurveyCanvas } from './SurveyCanvas';
 export { type EditorPersistenceState } from './EditorTopBar';
 export { type EditorPublishState } from './EditorTopBar';
 
+function SideTab({
+  active,
+  children,
+  onClick
+}: {
+  active: boolean;
+  children: React.ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      aria-selected={active}
+      className={[
+        'ui-btn flex-1',
+        active ? 'ui-btn-primary shadow-none' : 'ui-btn-secondary bg-[#f8fafc]'
+      ].join(' ')}
+      onClick={onClick}
+      role="tab"
+      type="button"
+    >
+      {children}
+    </button>
+  );
+}
+
 export function EditorShell({
   surveyId,
   initialSurvey,
@@ -41,6 +66,7 @@ export function EditorShell({
 }) {
   const storeRef = useRef<ReturnType<typeof createEditorStore> | null>(null);
   const [activeTab, setActiveTab] = useState<'ai' | 'inspector'>('ai');
+  const isLocked = Boolean(publishState?.publishedVersion && (responseCount ?? 0) > 0);
 
   if (!storeRef.current) {
     storeRef.current = createEditorStore({
@@ -50,8 +76,8 @@ export function EditorShell({
   }
 
   const activePanel = useMemo(() => {
-    return activeTab === 'ai' ? <AiAssistantPanel /> : <InspectorPanel />;
-  }, [activeTab]);
+    return activeTab === 'ai' ? <AiAssistantPanel readOnly={isLocked} /> : <InspectorPanel readOnly={isLocked} />;
+  }, [activeTab, isLocked]);
 
   useEffect(() => {
     if (!onSurveyChange || !storeRef.current) {
@@ -67,14 +93,7 @@ export function EditorShell({
 
   return (
     <EditorStoreContext.Provider value={storeRef.current}>
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: '240px minmax(0, 1fr) 360px',
-          gridTemplateRows: '80px minmax(0, 1fr)',
-          minHeight: '100vh'
-        }}
-      >
+      <div className="grid min-h-screen bg-[#f3f5f8] xl:grid-cols-[280px_minmax(0,1fr)_360px] xl:grid-rows-[auto_minmax(0,1fr)]">
         <EditorTopBar
           onPublish={onPublish}
           persistenceState={persistenceState}
@@ -82,45 +101,30 @@ export function EditorShell({
           responseCount={responseCount}
           surveyId={surveyId}
         />
-        <BlockPalette />
-        <SurveyCanvas />
-        <aside
-          style={{
-            borderLeft: '1px solid #d7deea',
-            background: '#fff',
-            padding: 20,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 16
-          }}
-        >
-          <div aria-label="Editor side panel tabs" role="tablist" style={{ display: 'flex', gap: 8 }}>
-            <button
-              aria-selected={activeTab === 'ai'}
-              onClick={() => setActiveTab('ai')}
-              role="tab"
-              type="button"
-            >
-              AI 助手
-            </button>
-            <button
-              aria-selected={activeTab === 'inspector'}
-              onClick={() => setActiveTab('inspector')}
-              role="tab"
-              type="button"
-            >
-              属性面板
-            </button>
+        <BlockPalette readOnly={isLocked} />
+        <SurveyCanvas readOnly={isLocked} />
+        <aside className="border-l border-[#d7dee8] bg-white px-4 py-5 md:px-5">
+          <div className="flex h-full flex-col gap-4">
+            <div aria-label="Editor side panel tabs" className="flex gap-2" role="tablist">
+              <SideTab active={activeTab === 'ai'} onClick={() => setActiveTab('ai')}>
+                AI 助手
+              </SideTab>
+              <SideTab active={activeTab === 'inspector'} onClick={() => setActiveTab('inspector')}>
+                属性面板
+              </SideTab>
+            </div>
+            <div className="flex flex-1 flex-col gap-4 overflow-auto pr-1">
+              <section className="ui-panel p-4">{activePanel}</section>
+              <SurveyDeliveryPanel
+                onRefreshResponses={onRefreshResponses}
+                publishedVersion={publishState?.publishedVersion ?? null}
+                recentResponses={recentResponses}
+                responseCount={responseCount ?? 0}
+                responseFeedState={responseFeedState}
+                surveyId={surveyId}
+              />
+            </div>
           </div>
-          {activePanel}
-          <SurveyDeliveryPanel
-            onRefreshResponses={onRefreshResponses}
-            publishedVersion={publishState?.publishedVersion ?? null}
-            recentResponses={recentResponses}
-            responseCount={responseCount ?? 0}
-            responseFeedState={responseFeedState}
-            surveyId={surveyId}
-          />
         </aside>
       </div>
     </EditorStoreContext.Provider>

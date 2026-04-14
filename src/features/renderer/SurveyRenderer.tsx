@@ -10,7 +10,7 @@ export function SurveyRenderer({
   mode: RendererMode;
 }) {
   return (
-    <div data-mode={mode}>
+    <div className="survey-stack" data-mode={mode}>
       {document.blocks.map((block) => {
         const Renderer = blockRegistry[block.type];
         return <Renderer key={block.id} block={block} mode={mode} />;

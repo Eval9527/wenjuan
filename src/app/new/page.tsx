@@ -1,10 +1,22 @@
 import { redirect } from 'next/navigation';
-import { createEmptySurvey } from '@/features/survey-schema/factories';
 import { saveSurveyDraft } from '@/features/persistence/repository';
+import { createSurveyFromTemplate } from '@/features/survey-schema/templates';
 
-export default async function NewSurveyPage() {
-  const surveyId = `survey-${crypto.randomUUID()}`;
-  const document = createEmptySurvey({ id: surveyId });
+function createSurveyId() {
+  return `wj-${crypto.randomUUID().replace(/-/g, '').slice(0, 8)}`;
+}
+
+export default async function NewSurveyPage({
+  searchParams
+}: {
+  searchParams?: Promise<{ template?: string }>;
+}) {
+  const resolvedSearchParams = (await searchParams) ?? undefined;
+  const surveyId = createSurveyId();
+  const document = createSurveyFromTemplate({
+    id: surveyId,
+    template: resolvedSearchParams?.template
+  });
 
   await saveSurveyDraft({
     surveyId,

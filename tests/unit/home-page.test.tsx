@@ -51,11 +51,11 @@ describe('HomePage', () => {
       document: draftOnlySurvey
     });
 
-    render(await HomePage());
+    render(await HomePage({} as never));
 
-    const totalCard = screen.getByText('问卷总数').closest('article');
-    const publishedCardSummary = screen.getByText('已发布').closest('article');
-    const responsesCard = screen.getByText('累计答卷').closest('article');
+    const totalCard = screen.getByText('全部问卷').closest('a');
+    const publishedCardSummary = screen.getByText('已发布').closest('a');
+    const responsesCard = screen.getByText('累计答卷').closest('a');
 
     expect(totalCard).not.toBeNull();
     expect(publishedCardSummary).not.toBeNull();
@@ -64,25 +64,64 @@ describe('HomePage', () => {
     expect(within(publishedCardSummary as HTMLElement).getByText('1')).toBeInTheDocument();
     expect(within(responsesCard as HTMLElement).getByText('1')).toBeInTheDocument();
 
-    expect(screen.getByRole('link', { name: '新建问卷' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '生成问卷' })).toBeInTheDocument();
     expect(screen.getByText('活动报名表')).toBeInTheDocument();
-    expect(screen.getByText('已发布 v1')).toBeInTheDocument();
-    expect(screen.getByText('已收集 1 份答卷')).toBeInTheDocument();
+    expect(screen.getByText('已锁定 · v1')).toBeInTheDocument();
+    expect(screen.getByText('答卷: 1 份')).toBeInTheDocument();
 
     const publishedCard = screen.getByText('活动报名表').closest('article');
     expect(publishedCard).not.toBeNull();
-    expect(within(publishedCard as HTMLElement).getByRole('link', { name: '继续编辑' })).toBeInTheDocument();
-    expect(within(publishedCard as HTMLElement).getByRole('link', { name: '填写页面' })).toBeInTheDocument();
-    fireEvent.click(within(publishedCard as HTMLElement).getByRole('button', { name: '复制填写链接' }));
+    expect(within(publishedCard as HTMLElement).queryByRole('link', { name: '继续编辑' })).not.toBeInTheDocument();
+    expect(within(publishedCard as HTMLElement).getByRole('link', { name: '查看分析' })).toBeInTheDocument();
+    expect(within(publishedCard as HTMLElement).getByRole('link', { name: '填写页' })).toBeInTheDocument();
+    fireEvent.click(within(publishedCard as HTMLElement).getByRole('button', { name: '复制链接' }));
 
     await waitFor(() => {
       expect(writeText).toHaveBeenCalledWith(expect.stringMatching(/\/f\/demo$/));
     });
 
-    expect(within(publishedCard as HTMLElement).getByText('链接已复制')).toBeInTheDocument();
+    expect(within(publishedCard as HTMLElement).getByText('已复制')).toBeInTheDocument();
 
     const draftOnlyCard = screen.getByText('内部预览问卷').closest('article');
     expect(draftOnlyCard).not.toBeNull();
-    expect(within(draftOnlyCard as HTMLElement).getByText('待发布后可分享')).toBeInTheDocument();
+    expect(within(draftOnlyCard as HTMLElement).queryByRole('link', { name: '填写页' })).not.toBeInTheDocument();
+
+    expect(screen.getByRole('link', { name: '空白开始' })).toHaveAttribute('href', '/new');
+    expect(screen.getByRole('link', { name: '活动报名模板' })).toHaveAttribute('href', '/new?template=event-signup');
+    expect(screen.getByRole('link', { name: '满意度回访模板' })).toHaveAttribute('href', '/new?template=satisfaction');
+    expect(screen.getByRole('link', { name: '线索收集模板' })).toHaveAttribute('href', '/new?template=lead-collection');
+  });
+
+  it('shows only the latest 5 surveys by default and can view all', async () => {
+    for (let index = 1; index <= 6; index += 1) {
+      await saveSurveyDraft({
+        surveyId: `survey-${index}`,
+        version: 1,
+        document: {
+          ...createEmptySurvey({ id: `survey-${index}` }),
+          title: `问卷 ${index}`
+        }
+      });
+      await new Promise((resolve) => setTimeout(resolve, 2));
+    }
+
+    const firstRender = render(await HomePage({} as never));
+
+    expect(screen.queryByText('问卷 1')).not.toBeInTheDocument();
+    expect(screen.getByText('问卷 2')).toBeInTheDocument();
+    expect(screen.getByText('问卷 6')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '查看全部' })).toHaveAttribute('href', '/?view=all');
+
+    firstRender.unmount();
+
+    render(
+      await HomePage({
+        searchParams: Promise.resolve({
+          view: 'all'
+        })
+      } as never)
+    );
+
+    expect(screen.getByText('问卷 1')).toBeInTheDocument();
   });
 });

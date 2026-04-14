@@ -23,9 +23,10 @@ import { useEditorStore } from './editor-store-context';
 
 function EmptyCanvasState() {
   return (
-    <div style={{ maxWidth: 420, textAlign: 'center' }}>
-      <h2>先从 AI 开始</h2>
-      <p>描述你想创建的问卷，或者先从左侧添加一个基础题型。</p>
+    <div className="mx-auto flex max-w-[440px] flex-col items-center gap-4 py-16 text-center">
+      <span className="ui-kicker">画布预览</span>
+      <h2 className="m-0 text-[28px] font-[800] leading-[1.2] tracking-[-0.03em] text-[#101828]">先用 AI 说一句，或者从左侧加一个基础题型。</h2>
+      <p className="m-0 text-sm leading-7 text-[#667085]">这里展示的应该尽量接近发布后的问卷观感，所以排序、删除等编辑操作已经被移到顶部工具栏。</p>
     </div>
   );
 }
@@ -33,23 +34,15 @@ function EmptyCanvasState() {
 function SortableCanvasBlockCard({
   block,
   index,
-  total,
-  moveUpTargetId,
-  moveDownTargetId,
   selectedBlockId,
   onSelect,
-  onMove,
-  onRemove
+  readOnly
 }: {
   block: SurveyBlock;
   index: number;
-  total: number;
-  moveUpTargetId?: string;
-  moveDownTargetId?: string;
   selectedBlockId: string | null;
   onSelect: (blockId: string) => void;
-  onMove: (blockId: string, targetBlockId?: string) => void;
-  onRemove: (blockId: string) => void;
+  readOnly: boolean;
 }) {
   const Renderer = blockRegistry[block.type];
   const {
@@ -60,107 +53,57 @@ function SortableCanvasBlockCard({
     transform,
     transition,
     isDragging
-  } = useSortable({ id: block.id });
+  } = useSortable({ id: block.id, disabled: readOnly });
   const isSelected = selectedBlockId === block.id;
 
   return (
     <article
       aria-selected={isSelected}
+      className={[
+        'group relative rounded-[26px] p-2 transition',
+        isSelected ? 'bg-[#eff6ff] ring-2 ring-[#2563eb] ring-offset-2 ring-offset-[#eef2f6]' : 'bg-transparent hover:bg-[#f8fafc]'
+      ].join(' ')}
       data-testid="canvas-block-card"
       onClick={() => onSelect(block.id)}
       ref={setNodeRef}
       style={{
-        border: isSelected ? '2px solid #0f62fe' : '1px solid #d7deea',
-        borderRadius: 18,
-        padding: 16,
-        boxShadow: isSelected ? '0 0 0 4px rgba(15, 98, 254, 0.08)' : 'none',
         cursor: isDragging ? 'grabbing' : 'pointer',
-        opacity: isDragging ? 0.7 : 1,
-        background: '#fff',
+        opacity: isDragging ? 0.72 : 1,
         transform: CSS.Transform.toString(transform),
         transition
       }}
     >
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 12,
-          marginBottom: 12
-        }}
+      <button
+        aria-label={`拖拽排序 ${block.label}`}
+        className={[
+          'absolute left-0 top-8 z-10 -translate-x-1/2 rounded-full border border-[#d7dee8] bg-white px-3 py-2 text-xs font-semibold text-[#667085] shadow-sm transition',
+          isSelected || readOnly ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+        ].join(' ')}
+        disabled={readOnly}
+        onClick={(event) => event.stopPropagation()}
+        ref={setActivatorNodeRef}
+        type="button"
+        {...attributes}
+        {...listeners}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button
-            aria-label={`拖拽排序 ${block.label}`}
-            onClick={(event) => event.stopPropagation()}
-            ref={setActivatorNodeRef}
-            style={{
-              border: '1px solid #d7deea',
-              borderRadius: 10,
-              background: '#f8fafc',
-              padding: '8px 10px',
-              cursor: isDragging ? 'grabbing' : 'grab',
-              touchAction: 'none'
-            }}
-            type="button"
-            {...attributes}
-            {...listeners}
-          >
-            ⋮⋮
-          </button>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <strong>{block.label}</strong>
-            <span style={{ color: '#667085', fontSize: 12 }}>#{index + 1} · {block.type}</span>
-          </div>
-        </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button
-            aria-label={`上移 ${block.label}`}
-            disabled={index === 0}
-            onClick={(event) => {
-              event.stopPropagation();
-              onMove(block.id, moveUpTargetId);
-            }}
-            type="button"
-          >
-            ↑
-          </button>
-          <button
-            aria-label={`下移 ${block.label}`}
-            disabled={index === total - 1}
-            onClick={(event) => {
-              event.stopPropagation();
-              onMove(block.id, moveDownTargetId);
-            }}
-            type="button"
-          >
-            ↓
-          </button>
-          <button
-            aria-label={`删除 ${block.label}`}
-            onClick={(event) => {
-              event.stopPropagation();
-              onRemove(block.id);
-            }}
-            type="button"
-          >
-            删除
-          </button>
-        </div>
+        ⋮⋮
+      </button>
+
+      <div className="pointer-events-none absolute right-6 top-4 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-[#667085] shadow-sm">
+        {block.type === 'title' ? '标题模块' : `第 ${index + 1} 题`}
       </div>
+
       <Renderer block={block} mode="editor-preview" />
     </article>
   );
 }
 
-export function SurveyCanvas() {
+export function SurveyCanvas({ readOnly = false }: { readOnly?: boolean }) {
   const survey = useEditorStore((state) => state.survey);
   const previewMode = useEditorStore((state) => state.previewMode);
   const selectedBlockId = useEditorStore((state) => state.selectedBlockId);
   const selectBlock = useEditorStore((state) => state.selectBlock);
   const moveBlock = useEditorStore((state) => state.moveBlock);
-  const removeBlock = useEditorStore((state) => state.removeBlock);
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -173,6 +116,10 @@ export function SurveyCanvas() {
   );
 
   function handleDragEnd(event: DragEndEvent) {
+    if (readOnly) {
+      return;
+    }
+
     const resolution = resolveDragMove(
       survey.blocks.map((block) => block.id),
       String(event.active.id),
@@ -187,51 +134,37 @@ export function SurveyCanvas() {
   }
 
   return (
-    <section
-      style={{
-        padding: 24,
-        display: 'flex',
-        justifyContent: 'center',
-        background: '#eef2f8'
-      }}
-    >
+    <section className="flex justify-center bg-[#eef2f6] px-4 py-5 md:px-6">
       <div
+        className={[
+          'ui-surface flex min-h-[720px] w-full flex-col gap-5 p-4 md:p-6',
+          previewMode === 'mobile' ? 'max-w-[430px]' : 'max-w-[920px]'
+        ].join(' ')}
         data-preview-mode={previewMode}
         data-testid="preview-frame"
-        style={{
-          width: previewMode === 'mobile' ? 390 : '100%',
-          maxWidth: 860,
-          minHeight: 560,
-          borderRadius: 24,
-          border: '1px solid #d7deea',
-          background: '#fff',
-          padding: 24,
-          boxSizing: 'border-box'
-        }}
       >
+        <div className="flex flex-col gap-3 rounded-[20px] border border-dashed border-[#d7dee8] bg-[#f8fafc] px-4 py-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="m-0 text-xs font-semibold uppercase tracking-[0.12em] text-[#667085]">实时画布</p>
+            <strong className="mt-1 block text-[17px] leading-7 text-[#101828]">{previewMode === 'mobile' ? '移动版问卷预览' : '桌面版问卷预览'}</strong>
+          </div>
+          <p className="m-0 max-w-[440px] text-sm leading-6 text-[#667085]">内容区尽量贴近最终发布效果；排序和删除统一放到顶部，避免把操作按钮塞进问卷内容里。</p>
+        </div>
+
         {survey.blocks.length ? (
           <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd} sensors={sensors}>
             <SortableContext items={survey.blocks.map((block) => block.id)} strategy={verticalListSortingStrategy}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                {survey.blocks.map((block, index) => {
-                  const moveUpTargetId = index > 0 ? survey.blocks[index - 1]?.id : undefined;
-                  const moveDownTargetId = survey.blocks[index + 2]?.id;
-
-                  return (
-                    <SortableCanvasBlockCard
-                      block={block}
-                      index={index}
-                      key={block.id}
-                      moveDownTargetId={moveDownTargetId}
-                      moveUpTargetId={moveUpTargetId}
-                      onMove={(blockId, targetBlockId) => moveBlock(blockId, targetBlockId)}
-                      onRemove={removeBlock}
-                      onSelect={selectBlock}
-                      selectedBlockId={selectedBlockId}
-                      total={survey.blocks.length}
-                    />
-                  );
-                })}
+              <div className="flex flex-col gap-4">
+                {survey.blocks.map((block, index) => (
+                  <SortableCanvasBlockCard
+                    block={block}
+                    index={index}
+                    key={block.id}
+                    onSelect={selectBlock}
+                    readOnly={readOnly}
+                    selectedBlockId={selectedBlockId}
+                  />
+                ))}
               </div>
             </SortableContext>
           </DndContext>

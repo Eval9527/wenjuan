@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { SurveyRenderer } from '@/features/renderer/SurveyRenderer';
+import type { RendererMode } from '@/features/renderer/renderers';
 import type { SurveyDocument } from '@/features/survey-schema/schema';
 
 function toAnswerPayload(formData: FormData) {
@@ -40,12 +41,32 @@ export function PublishedSurveyPage({
   const [submitted, setSubmitted] = useState<{ responseCount: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [rendererMode, setRendererMode] = useState<RendererMode>('published-desktop');
+  const questionCount = document.blocks.length;
+  const answerableCount = useMemo(
+    () => document.blocks.filter((block) => block.type !== 'title').length,
+    [document.blocks]
+  );
+  const isCompact = rendererMode === 'published-mobile';
+
+  useEffect(() => {
+    function syncRendererMode() {
+      setRendererMode(window.innerWidth <= 640 ? 'published-mobile' : 'published-desktop');
+    }
+
+    syncRendererMode();
+    window.addEventListener('resize', syncRendererMode);
+
+    return () => {
+      window.removeEventListener('resize', syncRendererMode);
+    };
+  }, []);
 
   return (
     <main
       style={{
         minHeight: '100vh',
-        padding: 24,
+        padding: isCompact ? 12 : 24,
         background: '#eef2f8',
         display: 'flex',
         justifyContent: 'center'
@@ -56,18 +77,42 @@ export function PublishedSurveyPage({
           width: '100%',
           maxWidth: 760,
           background: '#fff',
-          borderRadius: 24,
+          borderRadius: isCompact ? 16 : 24,
           border: '1px solid #d7deea',
-          padding: 24,
+          padding: isCompact ? 16 : 24,
           display: 'flex',
           flexDirection: 'column',
           gap: 20
         }}
       >
-        <header style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'center' }}>
-          <div>
+        <header
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            gap: 16,
+            alignItems: isCompact ? 'flex-start' : 'center',
+            flexDirection: isCompact ? 'column' : 'row'
+          }}
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <span
+              style={{
+                display: 'inline-flex',
+                width: 'fit-content',
+                borderRadius: 999,
+                padding: '4px 10px',
+                background: '#eef2ff',
+                color: '#3538cd',
+                fontSize: 12,
+                fontWeight: 600
+              }}
+            >
+              公开填写页
+            </span>
             <strong>{document.title}</strong>
             <p style={{ margin: '6px 0 0', color: '#667085' }}>问卷 ID：{surveyId}</p>
+            <p style={{ margin: 0, color: '#667085' }}>共 {questionCount} 题 · 当前版本 v{document.meta.version}</p>
+            <p style={{ margin: 0, color: '#667085' }}>支持 PC 与移动端访问，提交后会直接进入答卷收集列表。</p>
           </div>
           <a href={`/editor/${surveyId}`}>返回编辑器</a>
         </header>
@@ -83,6 +128,9 @@ export function PublishedSurveyPage({
           >
             <strong>提交成功，感谢填写</strong>
             <p style={{ margin: '8px 0 0', color: '#667085' }}>已累计收到 {submitted.responseCount} 份答卷。</p>
+            <p style={{ margin: '8px 0 0', color: '#667085' }}>
+              本次填写已进入答卷收件箱，可回到编辑器查看最新答卷详情。
+            </p>
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 12 }}>
               <a href="/">返回工作台</a>
               <a href={`/editor/${surveyId}`}>返回编辑器</a>
@@ -131,7 +179,23 @@ export function PublishedSurveyPage({
             }}
             style={{ display: 'flex', flexDirection: 'column', gap: 20 }}
           >
-            <SurveyRenderer document={document} mode="published-desktop" />
+            <section
+              style={{
+                border: '1px solid #d7deea',
+                borderRadius: 16,
+                background: '#f8fafc',
+                padding: isCompact ? 14 : 18,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 8
+              }}
+            >
+              <strong>填写说明</strong>
+              <p style={{ margin: 0, color: '#667085' }}>
+                本问卷当前共有 {answerableCount} 个可填写题目，提交后将实时进入问卷答卷列表。
+              </p>
+            </section>
+            <SurveyRenderer document={document} mode={rendererMode} />
             {error ? <p style={{ margin: 0, color: '#b42318' }}>{error}</p> : null}
             <button disabled={isSubmitting} type="submit">
               {isSubmitting ? '提交中...' : document.settings.submitLabel}

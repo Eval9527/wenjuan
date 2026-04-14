@@ -50,6 +50,8 @@ describe('PublishedSurveyPage', () => {
     );
 
     expect(screen.getByRole('link', { name: '返回编辑器' })).toBeInTheDocument();
+    expect(screen.getByText('共 2 题 · 当前版本 v2')).toBeInTheDocument();
+    expect(screen.getByText('支持 PC 与移动端访问，提交后会直接进入答卷收集列表。')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '提交问卷' })).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText('手机号'), {
