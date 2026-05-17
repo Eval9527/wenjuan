@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { aiDraftChangeSetSchema } from '@/features/ai-assistant/types';
 import { AiChangePreview } from './AiChangePreview';
 import { useEditorStore } from './editor-store-context';
@@ -19,6 +19,62 @@ const QUICK_PROMPTS = [
     prompt: '生成一个销售线索收集问卷，包含标题、姓名填写、单选需求类型'
   }
 ] as const;
+
+function GlobalSurveySettings({ readOnly = false }: { readOnly?: boolean }) {
+  const surveyTitle = useEditorStore((state) => state.survey.title);
+  const updateSurveyTitle = useEditorStore((state) => state.updateSurveyTitle);
+  const [draftTitle, setDraftTitle] = useState(surveyTitle);
+  const [isComposingTitle, setIsComposingTitle] = useState(false);
+
+  useEffect(() => {
+    if (!isComposingTitle) {
+      setDraftTitle(surveyTitle);
+    }
+  }, [isComposingTitle, surveyTitle]);
+
+  function commitTitle(nextTitle: string) {
+    const normalizedTitle = nextTitle.trim();
+
+    if (!readOnly && normalizedTitle && normalizedTitle !== surveyTitle) {
+      updateSurveyTitle(normalizedTitle);
+    }
+  }
+
+  return (
+    <div className="ai-global-settings ui-panel-soft p-4">
+      <div className="space-y-1">
+        <strong className="text-[15px] leading-6 text-[#101828]">问卷设置</strong>
+        <p className="m-0 text-xs leading-5 text-[#667085]">
+          这里设置整份问卷标题，不会同步修改画布里的标题组件。
+        </p>
+      </div>
+      <label className="ui-field mt-3">
+        <span className="ui-field-label">全局问卷标题</span>
+        <input
+          aria-label="全局问卷标题"
+          className="ui-input"
+          disabled={readOnly}
+          onBlur={(event) => commitTitle(event.target.value)}
+          onChange={(event) => {
+            setDraftTitle(event.target.value);
+            if (!isComposingTitle) {
+              commitTitle(event.target.value);
+            }
+          }}
+          onCompositionEnd={(event) => {
+            setIsComposingTitle(false);
+            setDraftTitle(event.currentTarget.value);
+            commitTitle(event.currentTarget.value);
+          }}
+          onCompositionStart={() => setIsComposingTitle(true)}
+          placeholder="输入问卷标题"
+          type="text"
+          value={draftTitle}
+        />
+      </label>
+    </div>
+  );
+}
 
 export function AiAssistantPanel({ readOnly = false }: { readOnly?: boolean }) {
   const survey = useEditorStore((state) => state.survey);
@@ -77,6 +133,8 @@ export function AiAssistantPanel({ readOnly = false }: { readOnly?: boolean }) {
           当前问卷已经收集到答卷，AI 改卷能力暂时关闭，避免直接覆盖已在收集中的版本。
         </div>
       ) : null}
+
+      <GlobalSurveySettings readOnly={readOnly} />
 
       <div className="ui-panel-soft p-4">
         <div className="space-y-1">

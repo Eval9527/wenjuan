@@ -14,7 +14,7 @@ export type EditorStoreState = {
   pendingChangeSet: AiDraftChangeSet | null;
   canUndo: boolean;
   canRedo: boolean;
-  addBlock: (input: { type: SurveyBlockType }) => void;
+  addBlock: (input: { type: SurveyBlockType; beforeBlockId?: string | null }) => void;
   updateSurveyTitle: (title: string) => void;
   updateBlock: (blockId: string, patch: Partial<SurveyBlock>) => void;
   removeBlock: (blockId: string) => void;
@@ -104,10 +104,19 @@ export function createEditorStore({
     pendingChangeSet: null,
     canUndo: false,
     canRedo: false,
-    addBlock: ({ type }) =>
+    addBlock: ({ type, beforeBlockId }) =>
       set((state) => {
         const newBlock = createBlock(type);
         const nextSurvey = produce(state.survey, (draft) => {
+          const targetIndex = beforeBlockId
+            ? draft.blocks.findIndex((block) => block.id === beforeBlockId)
+            : -1;
+
+          if (targetIndex >= 0) {
+            draft.blocks.splice(targetIndex, 0, newBlock);
+            return;
+          }
+
           draft.blocks.push(newBlock);
         });
 

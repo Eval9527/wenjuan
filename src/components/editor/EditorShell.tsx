@@ -8,7 +8,6 @@ import { AiAssistantPanel } from './AiAssistantPanel';
 import { BlockPalette } from './BlockPalette';
 import { EditorTopBar, type EditorPersistenceState, type EditorPublishState } from './EditorTopBar';
 import { EditorStoreContext } from './editor-store-context';
-import { GlobalPropertiesPanel } from './GlobalPropertiesPanel';
 import { InspectorPanel } from './InspectorPanel';
 import { SurveyCanvas } from './SurveyCanvas';
 
@@ -48,7 +47,6 @@ export function EditorShell({
   persistenceState,
   publishState,
   onPublish,
-  responseCount,
   onSurveyChange
 }: {
   surveyId: string;
@@ -60,7 +58,7 @@ export function EditorShell({
   onSurveyChange?: (survey: SurveyDocument) => void;
 }) {
   const storeRef = useRef<ReturnType<typeof createEditorStore> | null>(null);
-  const [activeTab, setActiveTab] = useState<'ai' | 'global' | 'inspector'>('ai');
+  const [activeTab, setActiveTab] = useState<'ai' | 'inspector'>('ai');
   const isLocked = Boolean(publishState?.publishedVersion);
 
   if (!storeRef.current) {
@@ -82,10 +80,6 @@ export function EditorShell({
   const activePanel = useMemo(() => {
     if (activeTab === 'ai') {
       return <AiAssistantPanel readOnly={isLocked} />;
-    }
-
-    if (activeTab === 'global') {
-      return <GlobalPropertiesPanel readOnly={isLocked} />;
     }
 
     return <InspectorPanel readOnly={isLocked} />;
@@ -110,7 +104,6 @@ export function EditorShell({
           onPublish={onPublish}
           persistenceState={persistenceState}
           publishState={publishState}
-          responseCount={responseCount}
           surveyId={surveyId}
         />
         <div className="editor-main-area">
@@ -119,7 +112,6 @@ export function EditorShell({
           <aside className="editor-side-panel editor-side-panel--right">
             <div aria-label="面板切换" className="editor-side-tabs" role="tablist">
               <SideTab active={activeTab === 'ai'} onClick={() => setActiveTab('ai')} tone="primary">AI 助手</SideTab>
-              <SideTab active={activeTab === 'global'} onClick={() => setActiveTab('global')}>全局属性</SideTab>
               <SideTab active={activeTab === 'inspector'} onClick={() => setActiveTab('inspector')}>组件属性</SideTab>
             </div>
             <div className="editor-side-scroll flex-1 p-4">

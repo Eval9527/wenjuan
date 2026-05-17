@@ -175,6 +175,25 @@ export function SurveyCanvas({ readOnly = false }: { readOnly?: boolean }) {
     event.dataTransfer.dropEffect = 'copy';
   }
 
+  function getDropBeforeBlockId(dropClientY: number) {
+    for (const block of survey.blocks) {
+      const element = canvasElementRefs.current.get(block.id);
+
+      if (!element) {
+        continue;
+      }
+
+      const rect = element.getBoundingClientRect();
+      const midpointY = rect.top + rect.height / 2;
+
+      if (dropClientY < midpointY) {
+        return block.id;
+      }
+    }
+
+    return undefined;
+  }
+
   function handlePaletteDrop(event: DragEvent<HTMLDivElement>) {
     if (readOnly) {
       return;
@@ -187,7 +206,10 @@ export function SurveyCanvas({ readOnly = false }: { readOnly?: boolean }) {
     }
 
     event.preventDefault();
-    addBlock({ type: blockType });
+    addBlock({
+      type: blockType,
+      beforeBlockId: getDropBeforeBlockId(event.clientY)
+    });
   }
 
   useEffect(() => {

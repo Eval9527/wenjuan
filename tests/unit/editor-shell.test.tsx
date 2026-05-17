@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { createEvent, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { EditorShell } from '@/components/editor/EditorShell';
 
@@ -40,11 +40,19 @@ describe('EditorShell', () => {
     expect(screen.getByRole('button', { name: '桌面预览' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '移动预览' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'AI 助手' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: '全局属性' })).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: '全局属性' })).not.toBeInTheDocument();
     expect(screen.getByRole('tab', { name: '组件属性' })).toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: '属性面板' })).not.toBeInTheDocument();
+    expect(screen.getByLabelText('全局问卷标题')).toBeInTheDocument();
     expect(screen.queryByText(/Survey ID/i)).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: '打开填写页' })).not.toBeInTheDocument();
+  });
+
+  it('does not show response count in the editor top bar', () => {
+    render(<EditorShell surveyId="demo" responseCount={0} />);
+
+    expect(screen.getByText('编辑中')).toBeInTheDocument();
+    expect(screen.queryByText('已收集 0 份答卷')).not.toBeInTheDocument();
   });
 
   it('adds title and paragraph blocks and toggles preview mode', () => {
@@ -166,6 +174,68 @@ describe('EditorShell', () => {
     expect(screen.getByRole('group', { name: '单选题' })).toBeInTheDocument();
   });
 
+  it('inserts a dragged palette block at the dropped canvas position', () => {
+    render(
+      <EditorShell
+        surveyId="demo"
+        initialSurvey={{
+          id: 'demo',
+          title: '插入测试',
+          blocks: [
+            { id: 'title-1', type: 'title', label: '标题一', level: 1 },
+            { id: 'input-1', type: 'input', label: '姓名', placeholder: '请输入姓名' }
+          ],
+          settings: { submitLabel: '提交' },
+          meta: {
+            version: 1,
+            createdAt: '2026-04-13T00:00:00.000Z',
+            updatedAt: '2026-04-13T00:00:00.000Z'
+          }
+        }}
+      />
+    );
+
+    const initialCards = screen.getAllByTestId('canvas-block-card');
+    vi.spyOn(initialCards[0], 'getBoundingClientRect').mockReturnValue({
+      top: 100,
+      bottom: 140,
+      height: 40,
+      left: 0,
+      right: 760,
+      width: 760,
+      x: 0,
+      y: 100,
+      toJSON: () => ({})
+    } as DOMRect);
+    vi.spyOn(initialCards[1], 'getBoundingClientRect').mockReturnValue({
+      top: 200,
+      bottom: 240,
+      height: 40,
+      left: 0,
+      right: 760,
+      width: 760,
+      x: 0,
+      y: 200,
+      toJSON: () => ({})
+    } as DOMRect);
+
+    const dataTransfer = createDataTransfer();
+    fireEvent.dragStart(screen.getByRole('button', { name: '单选' }), { dataTransfer });
+    const previewFrame = screen.getByTestId('preview-frame');
+    const dragOverEvent = createEvent.dragOver(previewFrame, { dataTransfer });
+    Object.defineProperty(dragOverEvent, 'clientY', { value: 170 });
+    fireEvent(previewFrame, dragOverEvent);
+
+    const dropEvent = createEvent.drop(previewFrame, { dataTransfer });
+    Object.defineProperty(dropEvent, 'clientY', { value: 170 });
+    fireEvent(previewFrame, dropEvent);
+
+    const cards = screen.getAllByTestId('canvas-block-card');
+    expect(within(cards[0]).getByRole('heading', { name: '标题一' })).toBeInTheDocument();
+    expect(within(cards[1]).getByRole('group', { name: '单选题' })).toBeInTheDocument();
+    expect(within(cards[2]).getByLabelText('姓名')).toBeInTheDocument();
+  });
+
   it('locks editing when a published survey already has responses', () => {
     render(
       <EditorShell
@@ -179,7 +249,7 @@ describe('EditorShell', () => {
       />
     );
 
-    expect(screen.getByText('已收集答卷，当前问卷已锁定')).toBeInTheDocument();
+    expect(screen.getByText('当前问卷已发布，编辑已锁定')).toBeInTheDocument();
     expect(screen.getByLabelText('问卷标题')).toBeDisabled();
     expect(screen.getByRole('button', { name: '标题' })).toBeDisabled();
     expect(screen.getByRole('button', { name: '发布问卷' })).toBeDisabled();
@@ -218,11 +288,11 @@ describe('EditorShell', () => {
     expect(screen.getByRole('heading', { name: '线下活动标题' })).toBeInTheDocument();
   });
 
-  it('edits global survey title from global properties panel without changing the h1 block', () => {
+  it('edits global survey title from the ai assistant panel without changing the h1 block', () => {
     render(<EditorShell surveyId="demo" />);
 
     fireEvent.click(screen.getByRole('button', { name: '标题' }));
-    fireEvent.click(screen.getByRole('tab', { name: '全局属性' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'AI 助手' }));
 
     fireEvent.change(screen.getByLabelText('全局问卷标题'), { target: { value: '客户回访问卷' } });
 

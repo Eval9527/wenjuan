@@ -48,14 +48,12 @@ export function EditorTopBar({
   surveyId,
   persistenceState,
   publishState,
-  onPublish,
-  responseCount
+  onPublish
 }: {
   surveyId: string;
   persistenceState?: EditorPersistenceState;
   publishState?: EditorPublishState;
   onPublish?: () => void;
-  responseCount?: number;
 }) {
   const surveyTitle = useEditorStore((state) => state.survey.title);
   const blocks = useEditorStore((state) => state.survey.blocks);
@@ -175,10 +173,9 @@ export function EditorTopBar({
               {publishState.message}
             </span>
           ) : null}
-          {typeof responseCount === 'number' ? <span className="text-xs text-[#64748b]">已收集 {responseCount} 份答卷</span> : null}
           {copyMessage && <span className="text-xs text-[#2563eb]">{copyMessage}</span>}
         </div>
-        {isLocked ? <span className="sr-only">已收集答卷，当前问卷已锁定</span> : null}
+        {isLocked ? <span className="sr-only">当前问卷已发布，编辑已锁定</span> : null}
       </div>
 
       <div className="editor-toolbar-cluster shrink-0 hidden lg:flex items-center gap-1">

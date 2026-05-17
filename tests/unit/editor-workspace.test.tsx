@@ -49,7 +49,7 @@ describe('EditorWorkspace', () => {
     expect(screen.getByText('正在加载问卷...')).toBeInTheDocument();
     expect(await screen.findByRole('heading', { name: '已保存标题' })).toBeInTheDocument();
     expect(screen.getByText(/草稿已加载/)).toBeInTheDocument();
-    expect(screen.getByText('已收集 2 份答卷')).toBeInTheDocument();
+    expect(screen.queryByText('已收集 2 份答卷')).not.toBeInTheDocument();
   });
 
   it('autosaves document changes after local edits', async () => {

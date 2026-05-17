@@ -74,4 +74,21 @@ describe('editor store', () => {
       content: '这是一段说明文字'
     });
   });
+
+  it('inserts new blocks before a target block when requested', () => {
+    const store = createEditorStore({ surveyId: 'demo' });
+
+    store.getState().addBlock({ type: 'title' });
+    store.getState().addBlock({ type: 'input' });
+
+    const inputBlock = store.getState().survey.blocks[1];
+    store.getState().addBlock({ type: 'singleChoice', beforeBlockId: inputBlock.id });
+
+    expect(store.getState().survey.blocks.map((block) => block.type)).toEqual([
+      'title',
+      'singleChoice',
+      'input'
+    ]);
+    expect(store.getState().selectedBlockId).toBe(store.getState().survey.blocks[1].id);
+  });
 });

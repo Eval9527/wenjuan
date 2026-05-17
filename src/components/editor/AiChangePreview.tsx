@@ -1,7 +1,7 @@
 'use client';
 
-import { SurveyRenderer } from '@/features/renderer/SurveyRenderer';
 import type { AiDraftChangeSet, ChangeOperation } from '@/features/ai-assistant/types';
+import { blockRegistry } from '@/features/block-library/registry';
 import type { ChoiceOption, SurveyBlock, SurveyDocument } from '@/features/survey-schema/schema';
 
 function describeOperation(operation: ChangeOperation) {
@@ -165,6 +165,30 @@ type Props = {
   onDiscard: () => void;
 };
 
+function SuggestedCanvasPreview({ document }: { document: SurveyDocument }) {
+  if (!document.blocks.length) {
+    return (
+      <div className="ai-change-preview__empty">
+        AI 建议后的问卷暂时为空
+      </div>
+    );
+  }
+
+  return (
+    <div className="editor-canvas-list ai-change-preview__canvas-list">
+      {document.blocks.map((block) => {
+        const Renderer = blockRegistry[block.type];
+
+        return (
+          <article className="editor-canvas-card ai-change-preview__canvas-card" key={block.id}>
+            <Renderer block={block} mode="editor-preview" />
+          </article>
+        );
+      })}
+    </div>
+  );
+}
+
 export function AiChangePreview({ changeSet, currentDocument, onApply, onDiscard }: Props) {
   return (
     <section className="ai-change-preview">
@@ -208,8 +232,12 @@ export function AiChangePreview({ changeSet, currentDocument, onApply, onDiscard
 
       <div className="flex flex-col gap-3">
         <strong className="text-[14px] text-[#0f172a]">建议后的问卷</strong>
-        <div className="ai-change-preview__survey ui-panel p-4">
-          <SurveyRenderer document={changeSet.nextDocument} mode="published-desktop" />
+        <div
+          className="editor-preview-frame ai-change-preview__frame"
+          data-preview-mode="desktop"
+          data-testid="ai-preview-frame"
+        >
+          <SuggestedCanvasPreview document={changeSet.nextDocument} />
         </div>
       </div>
       <div className="ai-change-preview__actions">
