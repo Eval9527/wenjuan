@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { SurveyRenderer } from '@/features/renderer/SurveyRenderer';
 
 describe('SurveyRenderer', () => {
-  it('renders title and choice blocks in editor preview mode', () => {
+  it('renders title, paragraph, and choice blocks in editor preview mode', () => {
     render(
       <SurveyRenderer
         mode="editor-preview"
@@ -12,6 +12,7 @@ describe('SurveyRenderer', () => {
           title: 'Demo',
           blocks: [
             { id: 'b1', type: 'title', label: '欢迎语', level: 1 },
+            { id: 'b3', type: 'paragraph', content: '第一段说明\n第二行补充\n\n第二段说明' },
             {
               id: 'b2',
               type: 'singleChoice',
@@ -30,6 +31,8 @@ describe('SurveyRenderer', () => {
     );
 
     expect(screen.getByText('欢迎语')).toBeInTheDocument();
+    expect(screen.getByText('第一段说明')).toBeInTheDocument();
+    expect(screen.getByText('第二段说明')).toBeInTheDocument();
     expect(screen.getByText('满意度')).toBeInTheDocument();
     expect(screen.getByLabelText('满意')).toBeInTheDocument();
   });

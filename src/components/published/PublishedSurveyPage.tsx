@@ -44,7 +44,7 @@ export function PublishedSurveyPage({
   const [rendererMode, setRendererMode] = useState<RendererMode>('published-desktop');
   const questionCount = document.blocks.length;
   const answerableCount = useMemo(
-    () => document.blocks.filter((block) => block.type !== 'title').length,
+    () => document.blocks.filter((block) => block.type !== 'title' && block.type !== 'paragraph').length,
     [document.blocks]
   );
   const isCompact = rendererMode === 'published-mobile';

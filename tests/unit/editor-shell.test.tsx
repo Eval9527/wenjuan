@@ -17,16 +17,21 @@ describe('EditorShell', () => {
     expect(screen.getByRole('button', { name: '桌面预览' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '移动预览' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'AI 助手' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: '属性面板' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: '全局属性' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: '组件属性' })).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: '属性面板' })).not.toBeInTheDocument();
     expect(screen.queryByText(/Survey ID/i)).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: '打开填写页' })).not.toBeInTheDocument();
   });
 
-  it('adds a title block and toggles preview mode', () => {
+  it('adds title and paragraph blocks and toggles preview mode', () => {
     render(<EditorShell surveyId="demo" />);
 
     fireEvent.click(screen.getByRole('button', { name: '标题' }));
     expect(screen.getByRole('heading', { name: '新标题' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '段落' }));
+    expect(screen.getAllByText('这是一段说明文字').length).toBeGreaterThan(0);
 
     fireEvent.click(screen.getByRole('button', { name: '移动预览' }));
     expect(screen.getByTestId('preview-frame')).toHaveAttribute('data-preview-mode', 'mobile');
@@ -77,20 +82,21 @@ describe('EditorShell', () => {
     expect(screen.getByRole('button', { name: '发布问卷' })).toBeDisabled();
   });
 
-  it('edits the selected block label from inspector', () => {
+  it('edits the selected title block label from component inspector', () => {
     render(<EditorShell surveyId="demo" />);
 
     fireEvent.click(screen.getByRole('button', { name: '标题' }));
-    fireEvent.click(screen.getByRole('tab', { name: '属性面板' }));
+    fireEvent.click(screen.getByRole('tab', { name: '组件属性' }));
 
-    const input = screen.getByLabelText('题目标题');
+    const input = screen.getByLabelText('标题文案');
     fireEvent.change(input, { target: { value: '活动报名' } });
 
-    expect(screen.getByLabelText('题目标题')).toHaveValue('活动报名');
+    expect(screen.getByLabelText('标题文案')).toHaveValue('活动报名');
     expect(screen.getByRole('heading', { name: '活动报名' })).toBeInTheDocument();
+    expect(screen.getByLabelText('标题层级')).not.toHaveDisplayValue('正文段落');
   });
 
-  it('syncs survey title between top bar and primary title block', () => {
+  it('keeps global survey title independent from title blocks', () => {
     render(<EditorShell surveyId="demo" />);
 
     fireEvent.click(screen.getByRole('button', { name: '标题' }));
@@ -99,20 +105,49 @@ describe('EditorShell', () => {
     fireEvent.change(surveyTitleInput, { target: { value: '活动报名表' } });
 
     expect(screen.getByLabelText('问卷标题')).toHaveValue('活动报名表');
-    expect(screen.getByRole('heading', { name: '活动报名表' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '新标题' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: '活动报名表' })).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('tab', { name: '属性面板' }));
-    fireEvent.change(screen.getByLabelText('题目标题'), { target: { value: '线下活动报名表' } });
+    fireEvent.click(screen.getByRole('tab', { name: '组件属性' }));
+    fireEvent.change(screen.getByLabelText('标题文案'), { target: { value: '线下活动标题' } });
 
-    expect(screen.getByLabelText('问卷标题')).toHaveValue('线下活动报名表');
-    expect(screen.getByRole('heading', { name: '线下活动报名表' })).toBeInTheDocument();
+    expect(screen.getByLabelText('问卷标题')).toHaveValue('活动报名表');
+    expect(screen.getByRole('heading', { name: '线下活动标题' })).toBeInTheDocument();
+  });
+
+  it('edits global survey title from global properties panel without changing the h1 block', () => {
+    render(<EditorShell surveyId="demo" />);
+
+    fireEvent.click(screen.getByRole('button', { name: '标题' }));
+    fireEvent.click(screen.getByRole('tab', { name: '全局属性' }));
+
+    fireEvent.change(screen.getByLabelText('全局问卷标题'), { target: { value: '客户回访问卷' } });
+
+    expect(screen.getByRole('textbox', { name: /^问卷标题$/ })).toHaveValue('客户回访问卷');
+    expect(screen.getByLabelText('全局问卷标题')).toHaveValue('客户回访问卷');
+    expect(screen.getByRole('heading', { name: '新标题' })).toBeInTheDocument();
+  });
+
+  it('edits paragraph content as multiline display text', () => {
+    render(<EditorShell surveyId="demo" />);
+
+    fireEvent.click(screen.getByRole('button', { name: '段落' }));
+    fireEvent.click(screen.getByRole('tab', { name: '组件属性' }));
+
+    fireEvent.change(screen.getByLabelText('段落内容'), {
+      target: { value: '第一段说明\n第二行补充\n\n第二段说明' }
+    });
+
+    expect(screen.getByLabelText('段落内容')).toHaveValue('第一段说明\n第二行补充\n\n第二段说明');
+    expect(screen.getByText('第一段说明')).toBeInTheDocument();
+    expect(screen.getByText('第二段说明')).toBeInTheDocument();
   });
 
   it('edits input placeholder from inspector', () => {
     render(<EditorShell surveyId="demo" />);
 
     fireEvent.click(screen.getByRole('button', { name: '填写框' }));
-    fireEvent.click(screen.getByRole('tab', { name: '属性面板' }));
+    fireEvent.click(screen.getByRole('tab', { name: '组件属性' }));
 
     const input = screen.getByLabelText('占位提示');
     fireEvent.change(input, { target: { value: '请输入手机号' } });
@@ -125,7 +160,7 @@ describe('EditorShell', () => {
     render(<EditorShell surveyId="demo" />);
 
     fireEvent.click(screen.getByRole('button', { name: '单选' }));
-    fireEvent.click(screen.getByRole('tab', { name: '属性面板' }));
+    fireEvent.click(screen.getByRole('tab', { name: '组件属性' }));
 
     const optionInput = screen.getByLabelText('选项文案 1');
     fireEvent.change(optionInput, { target: { value: '非常满意' } });
@@ -195,7 +230,7 @@ describe('EditorShell', () => {
 
     expect(screen.getByRole('tab', { name: 'AI 助手' })).toHaveAttribute('aria-selected', 'true');
     fireEvent.click(screen.getByLabelText('姓名'));
-    expect(screen.getByRole('tab', { name: '属性面板' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: '组件属性' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByLabelText('题目标题')).toHaveValue('姓名');
   });
 

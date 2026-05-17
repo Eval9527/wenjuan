@@ -23,6 +23,8 @@ function blockTypeLabel(type: SurveyBlock['type']) {
   switch (type) {
     case 'title':
       return '标题';
+    case 'paragraph':
+      return '段落';
     case 'input':
       return '填写框';
     case 'singleChoice':
@@ -32,6 +34,18 @@ function blockTypeLabel(type: SurveyBlock['type']) {
     default:
       return type satisfies never;
   }
+}
+
+function blockDisplayText(block: SurveyBlock | undefined) {
+  if (!block) {
+    return '-';
+  }
+
+  if (block.type === 'paragraph') {
+    return block.content.split(/\n/).find((line) => line.trim())?.trim() ?? '空段落';
+  }
+
+  return block.label;
 }
 
 function formatBoolean(value: boolean | undefined) {
@@ -58,15 +72,21 @@ function buildUpdateDetails({
   return Object.keys(operation.changes).map((field) => {
     switch (field) {
       case 'label':
-        return `题目标题：${currentBlock?.label ?? '-'} → ${nextBlock?.label ?? '-'}`;
+        return `题目标题：${blockDisplayText(currentBlock)} → ${blockDisplayText(nextBlock)}`;
+      case 'content':
+        return `段落内容：${blockDisplayText(currentBlock)} → ${blockDisplayText(nextBlock)}`;
       case 'description':
-        return `题目描述：${currentBlock?.description ?? '无'} → ${nextBlock?.description ?? '无'}`;
+        return `题目描述：${
+          currentBlock && 'description' in currentBlock ? currentBlock.description ?? '无' : '无'
+        } → ${nextBlock && 'description' in nextBlock ? nextBlock.description ?? '无' : '无'}`;
       case 'placeholder':
         return `占位提示：${
           currentBlock && 'placeholder' in currentBlock ? currentBlock.placeholder ?? '无' : '无'
         } → ${nextBlock && 'placeholder' in nextBlock ? nextBlock.placeholder ?? '无' : '无'}`;
       case 'required':
-        return `是否必填：${formatBoolean(currentBlock?.required)} → ${formatBoolean(nextBlock?.required)}`;
+        return `是否必填：${
+          formatBoolean(currentBlock && 'required' in currentBlock ? currentBlock.required : undefined)
+        } → ${formatBoolean(nextBlock && 'required' in nextBlock ? nextBlock.required : undefined)}`;
       case 'level':
         return `标题层级：${
           currentBlock && currentBlock.type === 'title' ? `H${currentBlock.level}` : 'H1'
@@ -103,7 +123,7 @@ function getOperationPresentation({
     case 'addBlock':
       return {
         badge: '新增',
-        title: `${blockTypeLabel(operation.block.type)} · ${operation.block.label}`,
+        title: `${blockTypeLabel(operation.block.type)} · ${blockDisplayText(operation.block)}`,
         details: [
           operation.block.type === 'input' && operation.block.placeholder
             ? `占位提示：${operation.block.placeholder}`
@@ -114,13 +134,13 @@ function getOperationPresentation({
     case 'removeBlock':
       return {
         badge: '删除',
-        title: currentBlock ? `${blockTypeLabel(currentBlock.type)} · ${currentBlock.label}` : `删除题目 · ${operation.blockId}`,
+        title: currentBlock ? `${blockTypeLabel(currentBlock.type)} · ${blockDisplayText(currentBlock)}` : `删除题目 · ${operation.blockId}`,
         details: ['该题目将从问卷中移除']
       };
     case 'moveBlock':
       return {
         badge: '排序',
-        title: currentBlock ? `${blockTypeLabel(currentBlock.type)} · ${currentBlock.label}` : `重排题目 · ${operation.blockId}`,
+        title: currentBlock ? `${blockTypeLabel(currentBlock.type)} · ${blockDisplayText(currentBlock)}` : `重排题目 · ${operation.blockId}`,
         details: [
           nextBlock
             ? `移动到第 ${nextDocument.blocks.findIndex((block) => block.id === nextBlock.id) + 1} 位`
@@ -130,7 +150,7 @@ function getOperationPresentation({
     case 'updateBlock':
       return {
         badge: '修改',
-        title: currentBlock ? `${blockTypeLabel(currentBlock.type)} · ${currentBlock.label}` : `更新题目 · ${operation.blockId}`,
+        title: currentBlock ? `${blockTypeLabel(currentBlock.type)} · ${blockDisplayText(currentBlock)}` : `更新题目 · ${operation.blockId}`,
         details: buildUpdateDetails({ operation, currentBlock, nextBlock })
       };
     default:

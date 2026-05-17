@@ -1,6 +1,7 @@
 import type {
   InputBlock,
   MultiChoiceBlock,
+  ParagraphBlock,
   SingleChoiceBlock,
   SurveyBlock,
   TitleBlock
@@ -13,8 +14,16 @@ type BlockRendererProps<T extends SurveyBlock> = {
   mode: RendererMode;
 };
 
-function blockClass(type: 'title' | 'question', _mode: RendererMode) {
-  return type === 'title' ? 'survey-block survey-block--title' : 'survey-block';
+function blockClass(type: 'title' | 'paragraph' | 'question', _mode: RendererMode) {
+  if (type === 'title') {
+    return 'survey-block survey-block--title';
+  }
+
+  if (type === 'paragraph') {
+    return 'survey-block survey-block--paragraph';
+  }
+
+  return 'survey-block';
 }
 
 function QuestionHeader({
@@ -38,13 +47,53 @@ function QuestionHeader({
 }
 
 export function TitleBlockRenderer({ block, mode }: BlockRendererProps<TitleBlock>) {
-  const Tag = block.level === 1 ? 'h1' : block.level === 2 ? 'h2' : block.level === 3 ? 'h3' : 'p';
+  const Tag = block.level === 1 ? 'h1' : block.level === 2 ? 'h2' : 'h3';
 
   return (
     <section className={blockClass('title', mode)} data-mode={mode} style={{ textAlign: block.align ?? 'left' }}>
       <Tag className="survey-title-heading" data-level={String(block.level)} data-align={block.align ?? 'left'}>
         {block.label}
       </Tag>
+    </section>
+  );
+}
+
+function ParagraphText({ content }: { content: string }) {
+  const paragraphs = content
+    .split(/\n{2,}/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean);
+
+  return (
+    <>
+      {(paragraphs.length ? paragraphs : ['']).map((paragraph, paragraphIndex) => {
+        const lines = paragraph.split(/\n/);
+
+        return (
+          <p key={`${paragraphIndex}-${paragraph.slice(0, 16)}`}>
+            {lines.map((line, lineIndex) => (
+              <span key={`${lineIndex}-${line.slice(0, 12)}`}>
+                {lineIndex > 0 ? <br /> : null}
+                <span>{line}</span>
+              </span>
+            ))}
+          </p>
+        );
+      })}
+    </>
+  );
+}
+
+export function ParagraphBlockRenderer({ block, mode }: BlockRendererProps<ParagraphBlock>) {
+  return (
+    <section
+      className={blockClass('paragraph', mode)}
+      data-mode={mode}
+      style={{ textAlign: block.align ?? 'left' }}
+    >
+      <div className="survey-paragraph-content" data-align={block.align ?? 'left'}>
+        <ParagraphText content={block.content} />
+      </div>
     </section>
   );
 }

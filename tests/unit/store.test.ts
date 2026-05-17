@@ -39,7 +39,7 @@ describe('editor store', () => {
     expect(store.getState().selectedBlockId).toBeNull();
   });
 
-  it('keeps survey title synced with the primary title block', () => {
+  it('keeps global survey title independent from title blocks', () => {
     const store = createEditorStore({ surveyId: 'demo' });
 
     store.getState().addBlock({ type: 'title' });
@@ -48,14 +48,30 @@ describe('editor store', () => {
     expect(titleBlock.type).toBe('title');
 
     store.getState().updateBlock(titleBlock.id, { label: '活动报名表' });
-    expect(store.getState().survey.title).toBe('活动报名表');
+    expect(store.getState().survey.title).toBe('未命名问卷');
+    expect(store.getState().survey.blocks[0]).toMatchObject({
+      id: titleBlock.id,
+      type: 'title',
+      label: '活动报名表'
+    });
 
     store.getState().updateSurveyTitle('线下活动报名表');
     expect(store.getState().survey.title).toBe('线下活动报名表');
     expect(store.getState().survey.blocks[0]).toMatchObject({
       id: titleBlock.id,
       type: 'title',
-      label: '线下活动报名表'
+      label: '活动报名表'
+    });
+  });
+
+  it('adds paragraph display blocks', () => {
+    const store = createEditorStore({ surveyId: 'demo' });
+
+    store.getState().addBlock({ type: 'paragraph' });
+
+    expect(store.getState().survey.blocks[0]).toMatchObject({
+      type: 'paragraph',
+      content: '这是一段说明文字'
     });
   });
 });

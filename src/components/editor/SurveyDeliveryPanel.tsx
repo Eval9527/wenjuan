@@ -61,7 +61,7 @@ export function SurveyDeliveryPanel({
     () =>
       Object.fromEntries(
         surveyBlocks
-          .filter((block) => block.type !== 'title')
+          .filter((block) => block.type === 'input' || block.type === 'singleChoice' || block.type === 'multiChoice')
           .map((block) => [block.id, block.label])
       ),
     [surveyBlocks]

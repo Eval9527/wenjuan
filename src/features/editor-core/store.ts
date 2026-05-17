@@ -33,8 +33,6 @@ type InternalEditorState = EditorStoreState & {
   history: HistoryState<SurveyDocument>;
 };
 
-const DEFAULT_SURVEY_TITLE = '未命名问卷';
-
 function bumpVersion(nextSurvey: SurveyDocument): SurveyDocument {
   return {
     ...nextSurvey,
@@ -46,52 +44,12 @@ function bumpVersion(nextSurvey: SurveyDocument): SurveyDocument {
   };
 }
 
-function getPrimaryTitleBlockIndex(blocks: SurveyBlock[]) {
-  return blocks.findIndex((block) => block.type === 'title');
-}
-
-function syncPrimaryTitleBlockFromSurveyTitle(survey: SurveyDocument, title: string) {
-  const primaryTitleBlockIndex = getPrimaryTitleBlockIndex(survey.blocks);
-  if (primaryTitleBlockIndex === -1) {
-    return {
-      ...survey,
-      title
-    };
-  }
-
-  return produce(survey, (draft) => {
-    draft.title = title;
-    draft.blocks[primaryTitleBlockIndex] = {
-      ...draft.blocks[primaryTitleBlockIndex],
-      label: title
-    } as SurveyBlock;
-  });
-}
-
-function syncSurveyTitleFromPrimaryTitleBlock(survey: SurveyDocument) {
-  const primaryTitleBlockIndex = getPrimaryTitleBlockIndex(survey.blocks);
-  if (primaryTitleBlockIndex === -1) {
-    return survey;
-  }
-
-  const primaryTitle = survey.blocks[primaryTitleBlockIndex];
-  if (survey.title === primaryTitle.label) {
-    return survey;
-  }
-
-  return {
-    ...survey,
-    title: primaryTitle.label
-  };
-}
-
 function withCommittedSurvey(
   state: InternalEditorState,
   nextSurvey: SurveyDocument,
   options?: { keepVersion?: boolean }
 ) {
-  const syncedSurvey = syncSurveyTitleFromPrimaryTitleBlock(nextSurvey);
-  const surveyToCommit = options?.keepVersion ? syncedSurvey : bumpVersion(syncedSurvey);
+  const surveyToCommit = options?.keepVersion ? nextSurvey : bumpVersion(nextSurvey);
   const history = commitHistory(state.history, surveyToCommit);
 
   return {
@@ -135,7 +93,7 @@ export function createEditorStore({
   initialSurvey?: SurveyDocument;
 }) {
   const baseSurvey = providedInitialSurvey ?? createEmptySurvey({ id: surveyId });
-  const initialSurvey = syncSurveyTitleFromPrimaryTitleBlock(baseSurvey);
+  const initialSurvey = baseSurvey;
   const initialHistory = createHistoryState(initialSurvey);
 
   return createStore<InternalEditorState>()((set, get) => ({
@@ -150,14 +108,6 @@ export function createEditorStore({
       set((state) => {
         const newBlock = createBlock(type);
         const nextSurvey = produce(state.survey, (draft) => {
-          if (type === 'title' && getPrimaryTitleBlockIndex(draft.blocks) === -1) {
-            if (draft.title !== DEFAULT_SURVEY_TITLE) {
-              newBlock.label = draft.title;
-            } else {
-              draft.title = newBlock.label;
-            }
-          }
-
           draft.blocks.push(newBlock);
         });
 
@@ -168,7 +118,10 @@ export function createEditorStore({
       }),
     updateSurveyTitle: (title) =>
       set((state) => {
-        const nextSurvey = syncPrimaryTitleBlockFromSurveyTitle(state.survey, title);
+        const nextSurvey = {
+          ...state.survey,
+          title
+        };
         return withCommittedSurvey(state, nextSurvey);
       }),
     updateBlock: (blockId, patch) =>
@@ -186,10 +139,6 @@ export function createEditorStore({
             id: current.id,
             type: current.type
           } as SurveyBlock;
-
-          if (existingIndex === getPrimaryTitleBlockIndex(draft.blocks) && current.type === 'title' && patch.label) {
-            draft.title = patch.label;
-          }
         });
 
         return withCommittedSurvey(state, nextSurvey);
@@ -203,13 +152,6 @@ export function createEditorStore({
 
         const nextSurvey = produce(state.survey, (draft) => {
           draft.blocks = draft.blocks.filter((block) => block.id !== blockId);
-
-          if (existingIndex === getPrimaryTitleBlockIndex(state.survey.blocks)) {
-            const nextPrimaryTitleBlock = draft.blocks.find((block) => block.type === 'title');
-            if (nextPrimaryTitleBlock) {
-              draft.title = nextPrimaryTitleBlock.label;
-            }
-          }
         });
 
         return {

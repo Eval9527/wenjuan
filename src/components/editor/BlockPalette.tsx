@@ -27,7 +27,10 @@ const groups: Array<{
 }> = [
   {
     title: '文本显示',
-    items: [{ label: '标题', hint: '添加一个展示用的标题块', type: 'title', icon: 'H1' }]
+    items: [
+      { label: '标题', hint: '添加一个 H1/H2/H3 标题块', type: 'title', icon: 'H1' },
+      { label: '段落', hint: '添加一段可多行输入的说明文字', type: 'paragraph', icon: 'P' }
+    ]
   },
   {
     title: '用户输入',
@@ -45,7 +48,9 @@ const groups: Array<{
 function getBlockTypeName(type: SurveyBlockType) {
   switch (type) {
     case 'title':
-      return '文本';
+      return '标题';
+    case 'paragraph':
+      return '段落';
     case 'input':
       return '输入';
     case 'singleChoice':
@@ -55,6 +60,14 @@ function getBlockTypeName(type: SurveyBlockType) {
     default:
       return type;
   }
+}
+
+function getBlockDisplayLabel(block: SurveyBlock) {
+  if (block.type === 'paragraph') {
+    return block.content.split(/\n/).find((line) => line.trim())?.trim() ?? '段落';
+  }
+
+  return block.label;
 }
 
 function SortableOutlineItem({
@@ -81,6 +94,7 @@ function SortableOutlineItem({
   } = useSortable({ id: block.id, disabled: readOnly });
 
   const isSelected = selectedBlockId === block.id;
+  const displayLabel = getBlockDisplayLabel(block);
 
   return (
     <div
@@ -99,7 +113,7 @@ function SortableOutlineItem({
       }}
     >
       <button
-        aria-label={`拖拽排序 ${block.label}`}
+        aria-label={`拖拽排序 ${displayLabel}`}
         className="editor-outline-handle"
         disabled={readOnly}
         ref={setActivatorNodeRef}
@@ -118,7 +132,7 @@ function SortableOutlineItem({
       </button>
       <button className="editor-outline-main" onClick={() => onSelect(block.id)} type="button">
         <span className="w-5 text-xs text-[#94a3b8] shrink-0">{index + 1}.</span>
-        <span className="flex-1 text-left truncate">{block.label}</span>
+        <span className="flex-1 text-left truncate">{displayLabel}</span>
         <span className="text-[11px] bg-white border border-[#e2e8f0] px-1.5 py-0.5 rounded text-[#64748b] shrink-0">
           {getBlockTypeName(block.type)}
         </span>

@@ -22,6 +22,8 @@ function getBlockTypeLabel(type: SurveyBlock['type']) {
   switch (type) {
     case 'title':
       return '标题';
+    case 'paragraph':
+      return '段落';
     case 'input':
       return '填写框';
     case 'singleChoice':
@@ -82,6 +84,12 @@ export function InspectorPanel({ readOnly = false }: { readOnly?: boolean }) {
     );
   }
 
+  const isQuestionBlock =
+    selectedBlock.type === 'input' ||
+    selectedBlock.type === 'singleChoice' ||
+    selectedBlock.type === 'multiChoice';
+  const canAlign = selectedBlock.type === 'title' || selectedBlock.type === 'paragraph';
+
   return (
     <section className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-2 pb-3 border-b border-[#e2e8f0]">
@@ -91,18 +99,50 @@ export function InspectorPanel({ readOnly = false }: { readOnly?: boolean }) {
       </div>
 
       <div className="flex flex-col gap-4">
-        <Field label="题目标题">
-          <input
-            aria-label="题目标题"
-            className="ui-input"
-            disabled={readOnly}
-            onChange={(event) => patchSelectedBlock({ label: event.target.value })}
-            type="text"
-            value={selectedBlock.label}
-          />
-        </Field>
+        {selectedBlock.type === 'title' ? (
+          <Field label="标题文案">
+            <input
+              aria-label="标题文案"
+              className="ui-input"
+              disabled={readOnly}
+              onChange={(event) => patchSelectedBlock({ label: event.target.value })}
+              type="text"
+              value={selectedBlock.label}
+            />
+          </Field>
+        ) : null}
 
-        {selectedBlock.type !== 'title' ? (
+        {selectedBlock.type === 'paragraph' ? (
+          <Field label="段落内容">
+            <textarea
+              aria-label="段落内容"
+              className="ui-textarea"
+              disabled={readOnly}
+              onChange={(event) =>
+                patchSelectedBlock({
+                  content: event.target.value || ' '
+                } as Partial<SurveyBlock>)
+              }
+              rows={6}
+              value={selectedBlock.content}
+            />
+          </Field>
+        ) : null}
+
+        {isQuestionBlock ? (
+          <Field label="题目标题">
+            <input
+              aria-label="题目标题"
+              className="ui-input"
+              disabled={readOnly}
+              onChange={(event) => patchSelectedBlock({ label: event.target.value })}
+              type="text"
+              value={selectedBlock.label}
+            />
+          </Field>
+        ) : null}
+
+        {isQuestionBlock ? (
           <>
             <Field label="题目描述">
               <textarea
@@ -136,9 +176,8 @@ export function InspectorPanel({ readOnly = false }: { readOnly?: boolean }) {
                 className="ui-select"
                 disabled={readOnly}
                 onChange={(event) => {
-                  const val = event.target.value;
                   patchSelectedBlock({
-                    level: val === 'p' ? 'p' : (Number(val) as TitleBlock['level'])
+                    level: Number(event.target.value) as TitleBlock['level']
                   } as Partial<SurveyBlock>);
                 }}
                 value={String(selectedBlock.level)}
@@ -146,9 +185,13 @@ export function InspectorPanel({ readOnly = false }: { readOnly?: boolean }) {
                 <option value={1}>主标题 (H1)</option>
                 <option value={2}>大标题 (H2)</option>
                 <option value={3}>小标题 (H3)</option>
-                <option value="p">正文段落</option>
               </select>
             </Field>
+          </>
+        ) : null}
+
+        {canAlign ? (
+          <>
             <Field label="对齐方式">
               <select
                 aria-label="对齐方式"

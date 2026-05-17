@@ -31,4 +31,47 @@ describe('survey schema', () => {
       })
     ).toThrow();
   });
+
+  it('accepts paragraph blocks and migrates legacy p-level title blocks', () => {
+    const parsed = surveyDocumentSchema.parse({
+      id: 'demo',
+      title: 'Demo',
+      blocks: [
+        {
+          id: 'b1',
+          type: 'paragraph',
+          content: '第一段说明\n\n第二段说明',
+          align: 'left'
+        },
+        {
+          id: 'legacy-p',
+          type: 'title',
+          label: '旧正文',
+          level: 'p',
+          align: 'center'
+        }
+      ],
+      settings: { submitLabel: '提交' },
+      meta: {
+        version: 1,
+        createdAt: '2026-04-13T00:00:00.000Z',
+        updatedAt: '2026-04-13T00:00:00.000Z'
+      }
+    });
+
+    expect(parsed.blocks).toEqual([
+      {
+        id: 'b1',
+        type: 'paragraph',
+        content: '第一段说明\n\n第二段说明',
+        align: 'left'
+      },
+      {
+        id: 'legacy-p',
+        type: 'paragraph',
+        content: '旧正文',
+        align: 'center'
+      }
+    ]);
+  });
 });

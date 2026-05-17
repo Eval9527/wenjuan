@@ -44,6 +44,13 @@ export function createBlock(type: SurveyBlockType): SurveyBlock {
         level: 1,
         align: 'left'
       };
+    case 'paragraph':
+      return {
+        id: createId('block'),
+        type: 'paragraph',
+        content: '这是一段说明文字',
+        align: 'left'
+      };
     case 'input':
       return {
         id: createId('block'),

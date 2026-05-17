@@ -21,6 +21,14 @@ import { resolveDragMove } from '@/features/editor-core/drag-sort';
 import type { SurveyBlock } from '@/features/survey-schema/schema';
 import { useEditorStore } from './editor-store-context';
 
+function getBlockDisplayLabel(block: SurveyBlock) {
+  if (block.type === 'paragraph') {
+    return block.content.split(/\n/).find((line) => line.trim())?.trim() ?? '段落';
+  }
+
+  return block.label;
+}
+
 function EmptyCanvasState() {
   return (
     <div className="flex flex-col items-center justify-center py-20 px-8 text-center text-[#64748b]">
@@ -33,13 +41,11 @@ function EmptyCanvasState() {
 
 function SortableCanvasBlockCard({
   block,
-  index,
   selectedBlockId,
   onSelect,
   readOnly
 }: {
   block: SurveyBlock;
-  index: number;
   selectedBlockId: string | null;
   onSelect: (blockId: string) => void;
   readOnly: boolean;
@@ -55,6 +61,7 @@ function SortableCanvasBlockCard({
     isDragging
   } = useSortable({ id: block.id, disabled: readOnly });
   const isSelected = selectedBlockId === block.id;
+  const displayLabel = getBlockDisplayLabel(block);
 
   return (
     <article
@@ -75,7 +82,7 @@ function SortableCanvasBlockCard({
       }}
     >
       <button
-        aria-label={`拖拽排序 ${block.label}`}
+        aria-label={`拖拽排序 ${displayLabel}`}
         className="editor-drag-handle"
         disabled={readOnly}
         onClick={(event) => event.stopPropagation()}
@@ -145,11 +152,10 @@ export function SurveyCanvas({ readOnly = false }: { readOnly?: boolean }) {
         {survey.blocks.length ? (
           <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd} sensors={sensors}>
             <SortableContext items={survey.blocks.map((block) => block.id)} strategy={verticalListSortingStrategy}>
-              <div className="flex flex-col gap-4">
-                {survey.blocks.map((block, index) => (
+              <div className="editor-canvas-list">
+                {survey.blocks.map((block) => (
                   <SortableCanvasBlockCard
                     block={block}
-                    index={index}
                     key={block.id}
                     onSelect={selectBlock}
                     readOnly={readOnly}

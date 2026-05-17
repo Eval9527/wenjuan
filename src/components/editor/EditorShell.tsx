@@ -8,6 +8,7 @@ import { AiAssistantPanel } from './AiAssistantPanel';
 import { BlockPalette } from './BlockPalette';
 import { EditorTopBar, type EditorPersistenceState, type EditorPublishState } from './EditorTopBar';
 import { EditorStoreContext } from './editor-store-context';
+import { GlobalPropertiesPanel } from './GlobalPropertiesPanel';
 import { InspectorPanel } from './InspectorPanel';
 import { SurveyCanvas } from './SurveyCanvas';
 
@@ -59,7 +60,7 @@ export function EditorShell({
   onSurveyChange?: (survey: SurveyDocument) => void;
 }) {
   const storeRef = useRef<ReturnType<typeof createEditorStore> | null>(null);
-  const [activeTab, setActiveTab] = useState<'ai' | 'inspector'>('ai');
+  const [activeTab, setActiveTab] = useState<'ai' | 'global' | 'inspector'>('ai');
   const isLocked = Boolean(publishState?.publishedVersion);
 
   if (!storeRef.current) {
@@ -82,6 +83,11 @@ export function EditorShell({
     if (activeTab === 'ai') {
       return <AiAssistantPanel readOnly={isLocked} />;
     }
+
+    if (activeTab === 'global') {
+      return <GlobalPropertiesPanel readOnly={isLocked} />;
+    }
+
     return <InspectorPanel readOnly={isLocked} />;
   }, [activeTab, isLocked]);
 
@@ -113,7 +119,8 @@ export function EditorShell({
           <aside className="editor-side-panel editor-side-panel--right">
             <div aria-label="面板切换" className="editor-side-tabs" role="tablist">
               <SideTab active={activeTab === 'ai'} onClick={() => setActiveTab('ai')} tone="primary">AI 助手</SideTab>
-              <SideTab active={activeTab === 'inspector'} onClick={() => setActiveTab('inspector')}>属性面板</SideTab>
+              <SideTab active={activeTab === 'global'} onClick={() => setActiveTab('global')}>全局属性</SideTab>
+              <SideTab active={activeTab === 'inspector'} onClick={() => setActiveTab('inspector')}>组件属性</SideTab>
             </div>
             <div className="editor-side-scroll flex-1 p-4">
               {activePanel}
