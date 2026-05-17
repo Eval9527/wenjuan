@@ -41,7 +41,8 @@ export function createBlock(type: SurveyBlockType): SurveyBlock {
         id: createId('block'),
         type: 'title',
         label: '新标题',
-        level: 1
+        level: 1,
+        align: 'left'
       };
     case 'input':
       return {

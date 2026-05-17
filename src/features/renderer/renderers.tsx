@@ -38,19 +38,19 @@ function QuestionHeader({
 }
 
 export function TitleBlockRenderer({ block, mode }: BlockRendererProps<TitleBlock>) {
-  const Tag = block.level === 1 ? 'h2' : 'h3';
+  const Tag = block.level === 1 ? 'h1' : block.level === 2 ? 'h2' : block.level === 3 ? 'h3' : 'p';
 
   return (
-    <section className={blockClass('title', mode)} data-mode={mode}>
-      <Tag className="survey-title-heading" data-level={String(block.level)}>
+    <section className={blockClass('title', mode)} data-mode={mode} style={{ textAlign: block.align ?? 'left' }}>
+      <Tag className="survey-title-heading" data-level={String(block.level)} data-align={block.align ?? 'left'}>
         {block.label}
       </Tag>
-      {block.description ? <p className="survey-question-desc">{block.description}</p> : null}
     </section>
   );
 }
 
 export function InputBlockRenderer({ block, mode }: BlockRendererProps<InputBlock>) {
+  const isEditor = mode === 'editor-preview';
   return (
     <section className={blockClass('question', mode)} data-mode={mode}>
       <QuestionHeader description={block.description} label={block.label} required={block.required} />
@@ -60,6 +60,9 @@ export function InputBlockRenderer({ block, mode }: BlockRendererProps<InputBloc
         name={block.id}
         placeholder={block.placeholder}
         required={Boolean(block.required)}
+        readOnly={isEditor}
+        tabIndex={isEditor ? -1 : 0}
+        onClick={(e) => isEditor && e.preventDefault()}
       />
     </section>
   );
@@ -74,6 +77,7 @@ function ChoiceField({
   mode: RendererMode;
   type: 'radio' | 'checkbox';
 }) {
+  const isEditor = mode === 'editor-preview';
   return (
     <fieldset className={blockClass('question', mode) + ' survey-choice-group'} data-mode={mode}>
       <legend>
@@ -81,11 +85,21 @@ function ChoiceField({
       </legend>
       <div className="survey-choice-list">
         {block.options.map((option) => (
-          <label className="survey-choice-item" key={option.id}>
+          <label
+            className="survey-choice-item"
+            key={option.id}
+            onClick={(event) => {
+              if (isEditor) {
+                event.preventDefault();
+              }
+            }}
+          >
             <input
               aria-label={option.text}
+              disabled={isEditor}
               name={block.id}
               required={type === 'radio' ? Boolean(block.required) : false}
+              tabIndex={isEditor ? -1 : 0}
               type={type}
               value={option.text}
             />

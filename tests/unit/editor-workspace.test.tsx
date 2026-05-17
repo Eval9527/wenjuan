@@ -98,7 +98,7 @@ describe('EditorWorkspace', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '标题' }));
     await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 900));
+      await new Promise((resolve) => setTimeout(resolve, 2600));
     });
 
     await waitFor(() => {
@@ -236,9 +236,7 @@ describe('EditorWorkspace', () => {
     expect(screen.getByText('已发布 v2')).toBeInTheDocument();
   });
 
-  it('loads and refreshes recent responses for a published survey', async () => {
-    let responseRequestCount = 0;
-
+  it('loads the published snapshot as readonly without showing response inbox data', async () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
       const url = typeof input === 'string' ? input : input instanceof Request ? input.url : String(input);
 
@@ -251,12 +249,12 @@ describe('EditorWorkspace', () => {
             savedAt: '2026-04-13T00:00:00.000Z',
             document: {
               id: 'demo',
-              title: '活动报名表',
+              title: '活动报名表草稿',
               blocks: [
                 {
                   id: 'title-1',
                   type: 'title',
-                  label: '活动报名表',
+                  label: '活动报名表草稿',
                   level: 1
                 }
               ],
@@ -269,57 +267,27 @@ describe('EditorWorkspace', () => {
             },
             published: {
               version: 2,
-              publishedAt: '2026-04-13T00:10:00.000Z'
+              publishedAt: '2026-04-13T00:10:00.000Z',
+              document: {
+                id: 'demo',
+                title: '活动报名表已发布',
+                blocks: [
+                  {
+                    id: 'title-pub',
+                    type: 'title',
+                    label: '活动报名表已发布',
+                    level: 1
+                  }
+                ],
+                settings: { submitLabel: '提交' },
+                meta: {
+                  version: 2,
+                  createdAt: '2026-04-13T00:00:00.000Z',
+                  updatedAt: '2026-04-13T00:00:00.000Z'
+                }
+              }
             }
           }),
-          { status: 200 }
-        );
-      }
-
-      if (url === '/api/surveys/demo/responses' && !init) {
-        responseRequestCount += 1;
-
-        return new Response(
-          JSON.stringify(
-            responseRequestCount === 1
-              ? {
-                  responseCount: 1,
-                  responses: [
-                    {
-                      id: 'resp-1',
-                      surveyId: 'demo',
-                      version: 2,
-                      submittedAt: '2026-04-13T00:12:00.000Z',
-                      answers: {
-                        'input-1': '张三'
-                      }
-                    }
-                  ]
-                }
-              : {
-                  responseCount: 2,
-                  responses: [
-                    {
-                      id: 'resp-2',
-                      surveyId: 'demo',
-                      version: 2,
-                      submittedAt: '2026-04-13T00:15:00.000Z',
-                      answers: {
-                        'input-1': '李四'
-                      }
-                    },
-                    {
-                      id: 'resp-1',
-                      surveyId: 'demo',
-                      version: 2,
-                      submittedAt: '2026-04-13T00:12:00.000Z',
-                      answers: {
-                        'input-1': '张三'
-                      }
-                    }
-                  ]
-                }
-          ),
           { status: 200 }
         );
       }
@@ -329,11 +297,10 @@ describe('EditorWorkspace', () => {
 
     render(<EditorWorkspace surveyId="demo" />);
 
-    expect(await screen.findByText(/张三/)).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: '刷新答卷' }));
-
-    expect(await screen.findByText(/李四/)).toBeInTheDocument();
-    expect(screen.getByText('已收集 2 份答卷')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: '活动报名表已发布' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: '活动报名表草稿' })).not.toBeInTheDocument();
+    expect(screen.getByLabelText('问卷标题')).toBeDisabled();
+    expect(screen.queryByText('发布与答卷')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '刷新答卷' })).not.toBeInTheDocument();
   });
 });

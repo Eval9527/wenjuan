@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { SurveyResponseRecord, SurveyResponseValue } from '@/features/persistence/contracts';
-import type { SurveyDocument } from '@/features/survey-schema/schema';
+import type { ChoiceOption, SurveyBlock, SurveyDocument } from '@/features/survey-schema/schema';
 
 export type SurveyDraftRecord = {
   surveyId: string;
@@ -70,6 +70,33 @@ async function readSurveyFile(surveyId: string): Promise<StoredSurveyFile | null
 async function writeSurveyFile(file: StoredSurveyFile) {
   await ensureSurveyDir();
   await writeFile(getSurveyFilePath(file.surveyId), JSON.stringify(file, null, 2), 'utf8');
+}
+
+function createShortSurveyId() {
+  return `wj-${randomUUID().replace(/-/g, '').slice(0, 8)}`;
+}
+
+function cloneOption(option: ChoiceOption): ChoiceOption {
+  return {
+    ...option,
+    id: `option-${randomUUID()}`
+  };
+}
+
+function cloneBlock(block: SurveyBlock): SurveyBlock {
+  const cloned = {
+    ...block,
+    id: `block-${randomUUID()}`
+  };
+
+  if (cloned.type === 'singleChoice' || cloned.type === 'multiChoice') {
+    return {
+      ...cloned,
+      options: cloned.options.map(cloneOption)
+    };
+  }
+
+  return cloned;
 }
 
 export async function saveSurveyDraft(input: {
@@ -146,6 +173,36 @@ export async function publishSurveyDraft(surveyId: string) {
   });
 
   return published;
+}
+
+export async function duplicateSurvey(surveyId: string) {
+  const existing = await readSurveyFile(surveyId);
+  const source = existing?.published?.document ??
+    (existing?.drafts.length ? [...existing.drafts].sort((left, right) => right.version - left.version)[0]?.document : null);
+
+  if (!existing || !source) {
+    throw new Error('Survey draft not found');
+  }
+
+  const now = new Date().toISOString();
+  const nextSurveyId = createShortSurveyId();
+  const document: SurveyDocument = {
+    ...source,
+    id: nextSurveyId,
+    title: `${source.title} 副本`,
+    blocks: source.blocks.map(cloneBlock),
+    meta: {
+      version: 1,
+      createdAt: now,
+      updatedAt: now
+    }
+  };
+
+  return saveSurveyDraft({
+    surveyId: nextSurveyId,
+    version: document.meta.version,
+    document
+  });
 }
 
 export async function submitSurveyResponse(

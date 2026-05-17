@@ -11,7 +11,8 @@ export const titleBlockSchema = z.object({
   label: z.string().min(1),
   description: z.string().optional(),
   required: z.boolean().optional(),
-  level: z.union([z.literal(1), z.literal(2)])
+  level: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal('p')]),
+  align: z.enum(['left', 'center', 'right']).optional()
 });
 
 export const inputBlockSchema = z.object({

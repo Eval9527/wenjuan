@@ -18,6 +18,7 @@ export type EditorStoreState = {
   updateSurveyTitle: (title: string) => void;
   updateBlock: (blockId: string, patch: Partial<SurveyBlock>) => void;
   removeBlock: (blockId: string) => void;
+  duplicateBlock: (blockId: string) => void;
   moveBlock: (blockId: string, targetBlockId?: string) => void;
   selectBlock: (blockId: string | null) => void;
   setPreviewMode: (mode: PreviewMode) => void;
@@ -214,6 +215,33 @@ export function createEditorStore({
         return {
           ...withCommittedSurvey(state, nextSurvey),
           selectedBlockId: state.selectedBlockId === blockId ? null : state.selectedBlockId
+        };
+      }),
+    duplicateBlock: (blockId) =>
+      set((state) => {
+        const existingIndex = state.survey.blocks.findIndex((block) => block.id === blockId);
+        if (existingIndex === -1) {
+          return state;
+        }
+
+        const blockToCopy = state.survey.blocks[existingIndex];
+        const newBlock = JSON.parse(JSON.stringify(blockToCopy)) as SurveyBlock;
+        newBlock.id = `block-${crypto.randomUUID()}`;
+
+        if (newBlock.type === 'singleChoice' || newBlock.type === 'multiChoice') {
+          newBlock.options = newBlock.options.map(opt => ({
+            ...opt,
+            id: `option-${crypto.randomUUID()}`
+          }));
+        }
+
+        const nextSurvey = produce(state.survey, (draft) => {
+          draft.blocks.splice(existingIndex + 1, 0, newBlock);
+        });
+
+        return {
+          ...withCommittedSurvey(state, nextSurvey),
+          selectedBlockId: newBlock.id
         };
       }),
     moveBlock: (blockId, targetBlockId) =>

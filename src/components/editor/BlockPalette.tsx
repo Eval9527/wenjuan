@@ -1,70 +1,232 @@
 'use client';
 
-import type { SurveyBlockType } from '@/features/survey-schema/schema';
+import {
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  DndContext,
+  useSensor,
+  useSensors,
+  type DragEndEvent
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { resolveDragMove } from '@/features/editor-core/drag-sort';
+import type { SurveyBlock, SurveyBlockType } from '@/features/survey-schema/schema';
 import { useEditorStore } from './editor-store-context';
+import { useState } from 'react';
 
 const groups: Array<{
   title: string;
-  description: string;
-  items: Array<{ label: string; hint: string; type: SurveyBlockType }>;
+  items: Array<{ label: string; hint: string; type: SurveyBlockType; icon: string }>;
 }> = [
   {
     title: '文本显示',
-    description: '用于封面、说明与结构层级。',
-    items: [{ label: '标题', hint: '问卷标题 / 分组标题', type: 'title' }]
+    items: [{ label: '标题', hint: '添加一个展示用的标题块', type: 'title', icon: 'H1' }]
   },
   {
     title: '用户输入',
-    description: '先完成最基本的信息收集。',
-    items: [{ label: '填写框', hint: '单行文本输入', type: 'input' }]
+    items: [{ label: '填写框', hint: '允许用户输入一行文字', type: 'input', icon: 'T' }]
   },
   {
     title: '用户选择',
-    description: '用选项题快速完成判断与收集。',
     items: [
-      { label: '单选', hint: '单项选择', type: 'singleChoice' },
-      { label: '多选', hint: '多项选择', type: 'multiChoice' }
+      { label: '单选', hint: '在多个选项中选择一个', type: 'singleChoice', icon: '◉' },
+      { label: '多选', hint: '在多个选项中选择多个', type: 'multiChoice', icon: '☑' }
     ]
   }
 ];
 
-export function BlockPalette({ readOnly = false }: { readOnly?: boolean }) {
-  const addBlock = useEditorStore((state) => state.addBlock);
+function getBlockTypeName(type: SurveyBlockType) {
+  switch (type) {
+    case 'title':
+      return '文本';
+    case 'input':
+      return '输入';
+    case 'singleChoice':
+      return '单选';
+    case 'multiChoice':
+      return '多选';
+    default:
+      return type;
+  }
+}
+
+function SortableOutlineItem({
+  block,
+  index,
+  selectedBlockId,
+  onSelect,
+  readOnly
+}: {
+  block: SurveyBlock;
+  index: number;
+  selectedBlockId: string | null;
+  onSelect: (blockId: string) => void;
+  readOnly: boolean;
+}) {
+  const {
+    attributes,
+    listeners,
+    setActivatorNodeRef,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging
+  } = useSortable({ id: block.id, disabled: readOnly });
+
+  const isSelected = selectedBlockId === block.id;
 
   return (
-    <aside className="border-r border-[#d7dee8] bg-white px-4 py-5 md:px-5">
-      <div className="flex h-full flex-col gap-4">
-        <div className="space-y-2">
-          <h2 className="ui-section-title">添加题目</h2>
-          <p className="m-0 text-sm leading-6 text-[#667085]">左侧保持题型分组，中间画布尽量接近最终问卷外观。</p>
-          {readOnly ? <p className="m-0 text-sm font-medium text-[#b54708]">当前问卷已锁定，不能继续新增或改动题目。</p> : null}
-        </div>
+    <div
+      ref={setNodeRef}
+      className={[
+        'editor-outline-row',
+        isSelected ? 'editor-outline-row--active' : '',
+        isDragging ? 'editor-outline-row--dragging' : ''
+      ].join(' ')}
+      style={{
+        opacity: isDragging ? 0.72 : 1,
+        transform: CSS.Translate.toString(transform),
+        transition,
+        zIndex: isDragging ? 10 : 1,
+        position: 'relative'
+      }}
+    >
+      <button
+        aria-label={`拖拽排序 ${block.label}`}
+        className="editor-outline-handle"
+        disabled={readOnly}
+        ref={setActivatorNodeRef}
+        type="button"
+        {...attributes}
+        {...listeners}
+      >
+        <span aria-hidden="true" className="editor-handle-dots">
+          <span />
+          <span />
+          <span />
+          <span />
+          <span />
+          <span />
+        </span>
+      </button>
+      <button className="editor-outline-main" onClick={() => onSelect(block.id)} type="button">
+        <span className="w-5 text-xs text-[#94a3b8] shrink-0">{index + 1}.</span>
+        <span className="flex-1 text-left truncate">{block.label}</span>
+        <span className="text-[11px] bg-white border border-[#e2e8f0] px-1.5 py-0.5 rounded text-[#64748b] shrink-0">
+          {getBlockTypeName(block.type)}
+        </span>
+      </button>
+    </div>
+  );
+}
 
-        <div className="flex flex-1 flex-col gap-3 overflow-auto pr-1">
-          {groups.map((group) => (
-            <section className="ui-panel-soft p-4" key={group.title}>
-              <div className="space-y-1">
-                <h3 className="m-0 text-[15px] font-[700] leading-6 text-[#101828]">{group.title}</h3>
-                <p className="m-0 text-xs leading-5 text-[#667085]">{group.description}</p>
+export function BlockPalette({ readOnly = false }: { readOnly?: boolean }) {
+  const addBlock = useEditorStore((state) => state.addBlock);
+  const blocks = useEditorStore((state) => state.survey.blocks);
+  const selectedBlockId = useEditorStore((state) => state.selectedBlockId);
+  const selectBlock = useEditorStore((state) => state.selectBlock);
+  const moveBlock = useEditorStore((state) => state.moveBlock);
+  const [activeTab, setActiveTab] = useState<'components' | 'layers'>('components');
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    const blockIds = blocks.map((b) => b.id);
+    const resolution = resolveDragMove(blockIds, String(active.id), over ? String(over.id) : null);
+    if (resolution.shouldMove && !readOnly) {
+      moveBlock(String(active.id), resolution.targetBlockId);
+    }
+  }
+
+  return (
+    <aside className="editor-side-panel editor-side-panel--left">
+      <div aria-label="左侧面板切换" className="editor-side-tabs" role="tablist">
+        <button
+          className={['editor-side-tab', activeTab === 'components' ? 'editor-side-tab--active' : ''].join(' ')}
+          onClick={() => setActiveTab('components')}
+          type="button"
+        >
+          组件库
+        </button>
+        <button
+          className={['editor-side-tab', activeTab === 'layers' ? 'editor-side-tab--active' : ''].join(' ')}
+          onClick={() => setActiveTab('layers')}
+          type="button"
+        >
+          大纲视图
+        </button>
+      </div>
+
+      <div className="editor-side-scroll flex-1 p-4">
+        {activeTab === 'components' ? (
+          <div className="flex flex-col gap-6">
+            <div className="space-y-1">
+              <h2 className="m-0 text-[18px] font-[800] leading-6 text-[#0f172a]">添加题目</h2>
+              <p className="m-0 text-xs leading-5 text-[#64748b]">选择组件后会插入到中间问卷画布。</p>
+            </div>
+            {readOnly && (
+              <div className="rounded-lg bg-[#fff7ed] px-3 py-2 text-sm text-[#b54708]">
+                问卷已锁定，无法添加组件。
               </div>
-              <div className="mt-3 grid gap-2">
-                {group.items.map((item) => (
-                  <button
-                    aria-label={item.label}
-                    className="rounded-2xl border border-[#d7dee8] bg-white px-4 py-3 text-left transition hover:-translate-y-0.5 hover:border-[#c4cfdd] disabled:opacity-50"
-                    disabled={readOnly}
-                    key={item.type}
-                    onClick={() => addBlock({ type: item.type })}
-                    type="button"
-                  >
-                    <span className="block text-[15px] font-[700] leading-6 text-[#101828]">{item.label}</span>
-                    <span className="mt-1 block text-xs leading-5 text-[#667085]">{item.hint}</span>
-                  </button>
-                ))}
-              </div>
-            </section>
-          ))}
-        </div>
+            )}
+
+            {groups.map((group) => (
+              <section className="editor-palette-group" key={group.title}>
+                <h3 className="mb-3 text-[13px] font-bold text-[#64748b]">{group.title}</h3>
+                <div className="grid gap-2">
+                  {group.items.map((item) => (
+                    <button
+                      aria-label={item.label}
+                      className="editor-palette-item"
+                      disabled={readOnly}
+                      key={item.type}
+                      onClick={() => addBlock({ type: item.type })}
+                      type="button"
+                    >
+                      <span className="editor-palette-icon" aria-hidden="true">{item.icon}</span>
+                      <span className="flex flex-col min-w-0">
+                        <span className="text-[14px] font-semibold text-[#1e293b] truncate">{item.label}</span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            ))}
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            <h2 className="m-0 text-[18px] font-[800] leading-6 text-[#0f172a] mb-2">问卷大纲</h2>
+            {blocks.length === 0 ? (
+              <div className="text-sm text-[#94a3b8] text-center py-4">空空如也，快去添加组件吧</div>
+            ) : (
+              <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd} sensors={sensors}>
+                <SortableContext items={blocks.map((b) => b.id)} strategy={verticalListSortingStrategy}>
+                  {blocks.map((block, index) => (
+                    <SortableOutlineItem
+                      key={block.id}
+                      block={block}
+                      index={index}
+                      selectedBlockId={selectedBlockId}
+                      onSelect={selectBlock}
+                      readOnly={readOnly}
+                    />
+                  ))}
+                </SortableContext>
+              </DndContext>
+            )}
+          </div>
+        )}
       </div>
     </aside>
   );

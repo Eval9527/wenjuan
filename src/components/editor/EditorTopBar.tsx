@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { PreviewModeSwitch } from './PreviewModeSwitch';
 import { useEditorStore } from './editor-store-context';
 
@@ -16,24 +16,30 @@ export type EditorPublishState = {
 };
 
 function ToolbarButton({
+  ariaLabel,
   className,
   disabled,
-  label,
+  icon,
+  title,
   onClick
 }: {
+  ariaLabel?: string;
   className?: string;
   disabled?: boolean;
-  label: string;
+  icon: React.ReactNode;
+  title: string;
   onClick?: () => void;
 }) {
   return (
     <button
-      className={['ui-btn ui-btn-secondary', className].filter(Boolean).join(' ')}
+      aria-label={ariaLabel ?? title}
+      title={title}
+      className={['editor-toolbar-btn p-2 rounded hover:bg-[#f1f5f9] disabled:opacity-50 disabled:cursor-not-allowed', className].filter(Boolean).join(' ')}
       disabled={disabled}
       onClick={onClick}
       type="button"
     >
-      {label}
+      {icon}
     </button>
   );
 }
@@ -61,8 +67,12 @@ export function EditorTopBar({
   const redo = useEditorStore((state) => state.redo);
   const moveBlock = useEditorStore((state) => state.moveBlock);
   const removeBlock = useEditorStore((state) => state.removeBlock);
+  const duplicateBlock = useEditorStore((state) => state.duplicateBlock);
   const [copyMessage, setCopyMessage] = useState('');
-  const isLocked = Boolean(publishState?.publishedVersion && (responseCount ?? 0) > 0);
+  const [draftTitle, setDraftTitle] = useState(surveyTitle);
+  const [isComposingTitle, setIsComposingTitle] = useState(false);
+  const isLocked = Boolean(publishState?.publishedVersion);
+  const shouldConfirmLeave = !isLocked && (persistenceState?.status === 'saving' || persistenceState?.status === 'error');
   const selectedIndex = useMemo(
     () => blocks.findIndex((block) => block.id === selectedBlockId),
     [blocks, selectedBlockId]
@@ -83,98 +93,122 @@ export function EditorTopBar({
   const moveUpTargetId = selectedIndex > 0 ? blocks[selectedIndex - 1]?.id : undefined;
   const moveDownTargetId = selectedIndex >= 0 ? blocks[selectedIndex + 2]?.id : undefined;
 
+  useEffect(() => {
+    if (!isComposingTitle) {
+      setDraftTitle(surveyTitle);
+    }
+  }, [isComposingTitle, surveyTitle]);
+
+  function commitTitle(nextTitle: string) {
+    if (nextTitle.trim() && nextTitle !== surveyTitle) {
+      updateSurveyTitle(nextTitle);
+    }
+  }
+
+  function handleBack() {
+    if (shouldConfirmLeave && !window.confirm('当前更改还没有保存完成，确定要返回上一页吗？')) {
+      return;
+    }
+
+    if (window.history.length > 1) {
+      window.history.back();
+      return;
+    }
+
+    window.location.href = '/';
+  }
+
   async function handleCopyShareLink() {
     if (!fillUrl || !navigator.clipboard?.writeText) {
-      setCopyMessage('当前环境不支持自动复制');
+      setCopyMessage('环境不支持自动复制');
+      setTimeout(() => setCopyMessage(''), 2000);
       return;
     }
 
     try {
       await navigator.clipboard.writeText(fillUrl);
       setCopyMessage('分享链接已复制');
+      setTimeout(() => setCopyMessage(''), 2000);
     } catch (error) {
-      setCopyMessage(error instanceof Error ? '复制失败，请手动复制链接' : '复制失败');
+      setCopyMessage('复制失败');
+      setTimeout(() => setCopyMessage(''), 2000);
     }
   }
 
   return (
-    <header className="col-span-full border-b border-[#d7dee8] bg-white/95 px-4 py-4 backdrop-blur md:px-6">
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto_auto] xl:items-start">
-        <div className="flex min-w-0 flex-col gap-3">
-          <div className="flex flex-wrap items-center gap-2">
-            {publishState?.publishedVersion ? <span className="ui-chip ui-chip-success">公开填写中</span> : <span className="ui-chip">草稿编辑中</span>}
-            {isLocked ? <span className="ui-chip ui-chip-warning">答卷保护中</span> : null}
-          </div>
-
-          <label className="ui-field max-w-[520px]">
-            <span className="ui-field-label">问卷标题</span>
-            <input
-              aria-label="问卷标题"
-              className="ui-input text-[18px] font-[700]"
-              disabled={isLocked}
-              onChange={(event) => updateSurveyTitle(event.target.value)}
-              type="text"
-              value={surveyTitle}
-            />
-          </label>
-
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-[#667085]">
-            {persistenceState ? (
-              <span className={persistenceState.status === 'error' ? 'text-[#b42318]' : ''}>{persistenceState.message}</span>
-            ) : null}
-            {publishState ? (
-              <span className={publishState.status === 'error' ? 'text-[#b42318]' : ''}>{publishState.message}</span>
-            ) : null}
-            {typeof responseCount === 'number' ? <span>已收集 {responseCount} 份答卷</span> : null}
-            {copyMessage ? <span>{copyMessage}</span> : null}
-          </div>
-
-          {isLocked ? <p className="m-0 text-sm font-medium text-[#b54708]">已收集答卷，当前问卷已锁定</p> : null}
+    <header className="editor-topbar">
+      <div className="flex flex-1 items-center gap-3 min-w-0">
+        <button onClick={handleBack} className="ui-btn ui-btn-ghost !px-2" title="返回上一页" aria-label="返回上一页">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+        </button>
+        <input
+          aria-label="问卷标题"
+          className="editor-title-input"
+          disabled={isLocked}
+          onBlur={(event) => commitTitle(event.target.value)}
+          onChange={(event) => {
+            setDraftTitle(event.target.value);
+            if (!isComposingTitle) {
+              commitTitle(event.target.value);
+            }
+          }}
+          onCompositionEnd={(event) => {
+            setIsComposingTitle(false);
+            setDraftTitle(event.currentTarget.value);
+            commitTitle(event.currentTarget.value);
+          }}
+          onCompositionStart={() => setIsComposingTitle(true)}
+          type="text"
+          value={draftTitle}
+          placeholder="输入问卷标题..."
+        />
+        <div className="hidden md:flex items-center gap-2">
+          {publishState?.publishedVersion ? <span className="ui-chip ui-chip-success">公开填写中</span> : <span className="ui-chip">编辑中</span>}
+          {isLocked ? <span className="ui-chip ui-chip-warning">答卷保护中</span> : null}
+          {persistenceState?.message ? (
+            <span className={['text-xs truncate max-w-[160px]', persistenceState.status === 'error' ? 'text-[#b42318]' : 'text-[#94a3b8]'].join(' ')}>
+              {persistenceState.message}
+            </span>
+          ) : null}
+          {publishState?.message ? (
+            <span className={['text-xs truncate max-w-[160px]', publishState.status === 'error' ? 'text-[#b42318]' : 'text-[#94a3b8]'].join(' ')}>
+              {publishState.message}
+            </span>
+          ) : null}
+          {typeof responseCount === 'number' ? <span className="text-xs text-[#64748b]">已收集 {responseCount} 份答卷</span> : null}
+          {copyMessage && <span className="text-xs text-[#2563eb]">{copyMessage}</span>}
         </div>
+        {isLocked ? <span className="sr-only">已收集答卷，当前问卷已锁定</span> : null}
+      </div>
 
-        <div className="flex flex-wrap items-center gap-2 xl:justify-center">
-          <ToolbarButton disabled={!canUndo || isLocked} label="撤销" onClick={undo} />
-          <ToolbarButton disabled={!canRedo || isLocked} label="重做" onClick={redo} />
-          <span className="hidden h-8 w-px bg-[#e4e7ec] xl:block" />
-          <ToolbarButton
-            disabled={!selectedBlock || selectedIndex === 0 || isLocked}
-            label="上移当前题目"
-            onClick={() => selectedBlock && moveBlock(selectedBlock.id, moveUpTargetId)}
-          />
-          <ToolbarButton
-            disabled={!selectedBlock || selectedIndex === -1 || selectedIndex === blocks.length - 1 || isLocked}
-            label="下移当前题目"
-            onClick={() => selectedBlock && moveBlock(selectedBlock.id, moveDownTargetId)}
-          />
-          <ToolbarButton
-            className="ui-btn-danger"
-            disabled={!selectedBlock || isLocked}
-            label="删除当前题目"
-            onClick={() => selectedBlock && removeBlock(selectedBlock.id)}
-          />
-        </div>
+      <div className="editor-toolbar-cluster shrink-0 hidden lg:flex items-center gap-1">
+        <ToolbarButton ariaLabel="撤销" disabled={!canUndo || isLocked} title="撤销" onClick={undo} icon={<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>} />
+        <ToolbarButton ariaLabel="重做" disabled={!canRedo || isLocked} title="重做" onClick={redo} icon={<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"/></svg>} />
+        <div className="w-px h-4 bg-[#cbd5e1] mx-1 opacity-60" />
+        <ToolbarButton ariaLabel="复制当前题目" disabled={!selectedBlock || isLocked} title="复制" onClick={() => selectedBlock && duplicateBlock(selectedBlock.id)} icon={<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>} />
+        <div className="w-px h-4 bg-[#cbd5e1] mx-1 opacity-60" />
+        <ToolbarButton ariaLabel="上移当前题目" disabled={!selectedBlock || selectedIndex === 0 || isLocked} title="上移" onClick={() => selectedBlock && moveBlock(selectedBlock.id, moveUpTargetId)} icon={<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m18 15-6-6-6 6"/></svg>} />
+        <ToolbarButton ariaLabel="下移当前题目" disabled={!selectedBlock || selectedIndex === -1 || selectedIndex === blocks.length - 1 || isLocked} title="下移" onClick={() => selectedBlock && moveBlock(selectedBlock.id, moveDownTargetId)} icon={<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>} />
+        <div className="w-px h-4 bg-[#cbd5e1] mx-1 opacity-60" />
+        <ToolbarButton ariaLabel="删除当前题目" className="text-[#b42318] hover:bg-[#fef2f2]" disabled={!selectedBlock || isLocked} title="删除" onClick={() => selectedBlock && removeBlock(selectedBlock.id)} icon={<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>} />
+      </div>
 
-        <div className="flex flex-wrap items-center justify-start gap-2 xl:justify-end">
-          <PreviewModeSwitch />
-          <button
-            className="ui-btn ui-btn-primary"
-            disabled={!onPublish || publishState?.status === 'publishing' || isLocked}
-            onClick={onPublish}
-            type="button"
-          >
-            {publishState?.status === 'publishing' ? '发布中...' : '发布问卷'}
+      <div className="flex flex-1 items-center justify-end gap-3 shrink-0">
+        <PreviewModeSwitch />
+        {publishState?.publishedVersion ? (
+          <button aria-label="复制分享链接" className="ui-btn ui-btn-secondary" onClick={handleCopyShareLink} type="button">
+            复制链接
           </button>
-          {resolvedFillPath ? (
-            <a className="ui-btn ui-btn-secondary" href={resolvedFillPath}>
-              打开填写页
-            </a>
-          ) : null}
-          {publishState?.publishedVersion ? (
-            <button className="ui-btn ui-btn-ghost" onClick={handleCopyShareLink} type="button">
-              复制分享链接
-            </button>
-          ) : null}
-        </div>
+        ) : null}
+        <button
+          aria-label="发布问卷"
+          className="ui-btn ui-btn-primary"
+          disabled={!onPublish || publishState?.status === 'publishing' || isLocked}
+          onClick={onPublish}
+          type="button"
+        >
+          {publishState?.status === 'publishing' ? '发布中...' : '发布问卷'}
+        </button>
       </div>
     </header>
   );

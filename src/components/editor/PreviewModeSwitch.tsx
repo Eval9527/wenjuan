@@ -15,7 +15,7 @@ function PreviewButton({
     <button
       aria-pressed={active}
       className={[
-        'ui-btn min-w-[96px] px-4',
+        'ui-btn min-w-[88px] px-3',
         active ? 'ui-btn-primary shadow-none' : 'ui-btn-secondary bg-[#f8fafc]'
       ].join(' ')}
       onClick={onClick}
@@ -31,7 +31,7 @@ export function PreviewModeSwitch() {
   const setPreviewMode = useEditorStore((state) => state.setPreviewMode);
 
   return (
-    <div aria-label="预览模式切换" className="flex items-center gap-2 rounded-2xl border border-[#d7dee8] bg-white p-1.5">
+    <div aria-label="预览模式切换" className="editor-preview-switch">
       <PreviewButton active={previewMode === 'desktop'} onClick={() => setPreviewMode('desktop')}>
         桌面预览
       </PreviewButton>

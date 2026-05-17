@@ -18,7 +18,8 @@ export async function GET(_: Request, { params }: { params: Promise<{ surveyId: 
     published: published
       ? {
           version: published.version,
-          publishedAt: published.publishedAt
+          publishedAt: published.publishedAt,
+          document: published.document
         }
       : null
   });
@@ -26,6 +27,12 @@ export async function GET(_: Request, { params }: { params: Promise<{ surveyId: 
 
 export async function PUT(request: Request, { params }: { params: Promise<{ surveyId: string }> }) {
   const { surveyId } = await params;
+  const published = await getPublishedSurvey(surveyId);
+
+  if (published) {
+    return Response.json({ error: 'Published survey is read only. Duplicate it before editing.' }, { status: 409 });
+  }
+
   const body = await request.json();
   const document = surveyDocumentSchema.parse(body.document);
   const saved = await saveSurveyDraft({

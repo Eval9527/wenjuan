@@ -23,10 +23,10 @@ import { useEditorStore } from './editor-store-context';
 
 function EmptyCanvasState() {
   return (
-    <div className="mx-auto flex max-w-[440px] flex-col items-center gap-4 py-16 text-center">
-      <span className="ui-kicker">画布预览</span>
-      <h2 className="m-0 text-[28px] font-[800] leading-[1.2] tracking-[-0.03em] text-[#101828]">先用 AI 说一句，或者从左侧加一个基础题型。</h2>
-      <p className="m-0 text-sm leading-7 text-[#667085]">这里展示的应该尽量接近发布后的问卷观感，所以排序、删除等编辑操作已经被移到顶部工具栏。</p>
+    <div className="flex flex-col items-center justify-center py-20 px-8 text-center text-[#64748b]">
+      <div className="w-16 h-16 mb-4 rounded-full bg-[#f1f5f9] flex items-center justify-center text-2xl">✨</div>
+      <h2 className="text-xl font-bold text-[#0f172a] mb-2">问卷内容为空</h2>
+      <p className="text-sm mb-6 max-w-md">你可以从左侧拖拽组件，或者在右侧让 AI 帮你一键起草整份问卷内容。</p>
     </div>
   );
 }
@@ -60,25 +60,23 @@ function SortableCanvasBlockCard({
     <article
       aria-selected={isSelected}
       className={[
-        'group relative rounded-[26px] p-2 transition',
-        isSelected ? 'bg-[#eff6ff] ring-2 ring-[#2563eb] ring-offset-2 ring-offset-[#eef2f6]' : 'bg-transparent hover:bg-[#f8fafc]'
+        'editor-canvas-card',
+        isSelected ? 'editor-canvas-card--selected' : ''
       ].join(' ')}
       data-testid="canvas-block-card"
       onClick={() => onSelect(block.id)}
       ref={setNodeRef}
       style={{
         cursor: isDragging ? 'grabbing' : 'pointer',
-        opacity: isDragging ? 0.72 : 1,
-        transform: CSS.Transform.toString(transform),
-        transition
+        opacity: isDragging ? 0.6 : 1,
+        transform: CSS.Translate.toString(transform),
+        transition,
+        zIndex: isDragging ? 100 : 1
       }}
     >
       <button
         aria-label={`拖拽排序 ${block.label}`}
-        className={[
-          'absolute left-0 top-8 z-10 -translate-x-1/2 rounded-full border border-[#d7dee8] bg-white px-3 py-2 text-xs font-semibold text-[#667085] shadow-sm transition',
-          isSelected || readOnly ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-        ].join(' ')}
+        className="editor-drag-handle"
         disabled={readOnly}
         onClick={(event) => event.stopPropagation()}
         ref={setActivatorNodeRef}
@@ -86,12 +84,15 @@ function SortableCanvasBlockCard({
         {...attributes}
         {...listeners}
       >
-        ⋮⋮
+        <svg width="16" height="20" viewBox="0 0 16 20" fill="currentColor">
+          <circle cx="6" cy="4" r="1.5" />
+          <circle cx="10" cy="4" r="1.5" />
+          <circle cx="6" cy="10" r="1.5" />
+          <circle cx="10" cy="10" r="1.5" />
+          <circle cx="6" cy="16" r="1.5" />
+          <circle cx="10" cy="16" r="1.5" />
+        </svg>
       </button>
-
-      <div className="pointer-events-none absolute right-6 top-4 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-[#667085] shadow-sm">
-        {block.type === 'title' ? '标题模块' : `第 ${index + 1} 题`}
-      </div>
 
       <Renderer block={block} mode="editor-preview" />
     </article>
@@ -134,23 +135,13 @@ export function SurveyCanvas({ readOnly = false }: { readOnly?: boolean }) {
   }
 
   return (
-    <section className="flex justify-center bg-[#eef2f6] px-4 py-5 md:px-6">
+    <main className="editor-canvas-stage" onClick={() => selectBlock('')}>
       <div
-        className={[
-          'ui-surface flex min-h-[720px] w-full flex-col gap-5 p-4 md:p-6',
-          previewMode === 'mobile' ? 'max-w-[430px]' : 'max-w-[920px]'
-        ].join(' ')}
+        className="editor-preview-frame"
         data-preview-mode={previewMode}
         data-testid="preview-frame"
+        onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex flex-col gap-3 rounded-[20px] border border-dashed border-[#d7dee8] bg-[#f8fafc] px-4 py-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <p className="m-0 text-xs font-semibold uppercase tracking-[0.12em] text-[#667085]">实时画布</p>
-            <strong className="mt-1 block text-[17px] leading-7 text-[#101828]">{previewMode === 'mobile' ? '移动版问卷预览' : '桌面版问卷预览'}</strong>
-          </div>
-          <p className="m-0 max-w-[440px] text-sm leading-6 text-[#667085]">内容区尽量贴近最终发布效果；排序和删除统一放到顶部，避免把操作按钮塞进问卷内容里。</p>
-        </div>
-
         {survey.blocks.length ? (
           <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd} sensors={sensors}>
             <SortableContext items={survey.blocks.map((block) => block.id)} strategy={verticalListSortingStrategy}>
@@ -172,6 +163,6 @@ export function SurveyCanvas({ readOnly = false }: { readOnly?: boolean }) {
           <EmptyCanvasState />
         )}
       </div>
-    </section>
+    </main>
   );
 }

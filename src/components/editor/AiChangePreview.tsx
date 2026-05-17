@@ -147,25 +147,16 @@ type Props = {
 
 export function AiChangePreview({ changeSet, currentDocument, onApply, onDiscard }: Props) {
   return (
-    <section
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 12,
-        border: '1px solid #d7deea',
-        borderRadius: 16,
-        padding: 16,
-        background: '#f8fafc'
-      }}
-    >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <strong>{changeSet.summary}</strong>
-        <div style={{ color: '#667085', fontSize: 13 }}>用户意图：{changeSet.userIntent}</div>
-        <div style={{ color: '#667085' }}>建议操作数：{changeSet.operations.length}</div>
+    <section className="ai-change-preview">
+      <div className="ai-change-preview__header">
+        <h2 className="m-0 text-[18px] font-bold text-[#0f172a]" id="ai-change-preview-title">AI 修改预览</h2>
+        <strong className="text-[14px] text-[#334155]">{changeSet.summary}</strong>
+        <div className="text-[13px] text-[#64748b]">用户意图：{changeSet.userIntent}</div>
+        <div className="text-[13px] text-[#64748b]">建议操作数：{changeSet.operations.length}</div>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <strong>变更明细</strong>
+      <div className="flex flex-col gap-3">
+        <strong className="text-[14px] text-[#0f172a]">变更明细</strong>
         {changeSet.operations.map((operation, index) => {
           const presentation = getOperationPresentation({
             operation,
@@ -176,36 +167,15 @@ export function AiChangePreview({ changeSet, currentDocument, onApply, onDiscard
           return (
             <article
               key={`${operation.type}-${index}`}
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 8,
-                border: '1px solid #d7deea',
-                borderRadius: 14,
-                padding: 12,
-                background: '#fff'
-              }}
+              className="ui-panel p-3 flex flex-col gap-2"
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                <span
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    padding: '2px 8px',
-                    borderRadius: 999,
-                    background: '#e8f0ff',
-                    color: '#0f62fe',
-                    fontSize: 12,
-                    fontWeight: 600
-                  }}
-                >
-                  {presentation.badge}
-                </span>
-                <strong>{presentation.title}</strong>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="ui-chip">{presentation.badge}</span>
+                <strong className="text-[13px] text-[#1e293b]">{presentation.title}</strong>
               </div>
-              <code style={{ fontSize: 12, color: '#475467' }}>{describeOperation(operation)}</code>
+              <code className="text-[12px] text-[#475569]">{describeOperation(operation)}</code>
               {presentation.details.length ? (
-                <ul style={{ margin: 0, paddingLeft: 18, color: '#475467' }}>
+                <ul className="m-0 pl-5 text-[13px] text-[#475569]">
                   {presentation.details.map((detail) => (
                     <li key={detail}>{detail}</li>
                   ))}
@@ -216,25 +186,18 @@ export function AiChangePreview({ changeSet, currentDocument, onApply, onDiscard
         })}
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <strong>建议后的问卷</strong>
-        <div
-          style={{
-            border: '1px solid #d7deea',
-            borderRadius: 16,
-            padding: 16,
-            background: '#fff'
-          }}
-        >
+      <div className="flex flex-col gap-3">
+        <strong className="text-[14px] text-[#0f172a]">建议后的问卷</strong>
+        <div className="ai-change-preview__survey ui-panel p-4">
           <SurveyRenderer document={changeSet.nextDocument} mode="published-desktop" />
         </div>
       </div>
-      <div style={{ display: 'flex', gap: 8 }}>
-        <button onClick={onApply} type="button">
-          应用修改
-        </button>
-        <button onClick={onDiscard} type="button">
+      <div className="ai-change-preview__actions">
+        <button className="ui-btn ui-btn-secondary" onClick={onDiscard} type="button">
           放弃修改
+        </button>
+        <button className="ui-btn ui-btn-primary" onClick={onApply} type="button">
+          应用修改
         </button>
       </div>
     </section>

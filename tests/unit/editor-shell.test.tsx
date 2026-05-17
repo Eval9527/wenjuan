@@ -98,7 +98,7 @@ describe('EditorShell', () => {
     const surveyTitleInput = screen.getByLabelText('问卷标题');
     fireEvent.change(surveyTitleInput, { target: { value: '活动报名表' } });
 
-    expect(screen.getByDisplayValue('活动报名表')).toBeInTheDocument();
+    expect(screen.getByLabelText('问卷标题')).toHaveValue('活动报名表');
     expect(screen.getByRole('heading', { name: '活动报名表' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('tab', { name: '属性面板' }));
@@ -134,13 +134,7 @@ describe('EditorShell', () => {
     expect(screen.getByRole('radio', { name: '非常满意' })).toBeInTheDocument();
   });
 
-  it('shows published share tools and recent responses', async () => {
-    const writeText = vi.fn().mockResolvedValue(undefined);
-    Object.defineProperty(window.navigator, 'clipboard', {
-      value: { writeText },
-      configurable: true
-    });
-
+  it('keeps published editor readonly and hides response data panel', () => {
     render(
       <EditorShell
         surveyId="demo"
@@ -149,37 +143,17 @@ describe('EditorShell', () => {
           message: '已发布 v2',
           publishedVersion: 2
         }}
-        recentResponses={[
-          {
-            id: 'resp-1',
-            surveyId: 'demo',
-            version: 2,
-            submittedAt: '2026-04-13T12:00:00.000Z',
-            answers: {
-              'input-1': '张三',
-              'choice-1': ['产品体验', '客服响应']
-            }
-          }
-        ]}
         responseCount={1}
       />
     );
 
-    expect(screen.getByText('发布与答卷')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '复制填写链接' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '刷新答卷' })).toBeInTheDocument();
-    expect(screen.getByText('张三 · 产品体验、客服响应')).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: '复制填写链接' }));
-
-    await waitFor(() => {
-      expect(writeText).toHaveBeenCalledWith(expect.stringMatching(/\/f\/demo$/));
-    });
-
-    expect(screen.getByText('链接已复制')).toBeInTheDocument();
+    expect(screen.getByText('公开填写中')).toBeInTheDocument();
+    expect(screen.getByLabelText('问卷标题')).toBeDisabled();
+    expect(screen.queryByText('发布与答卷')).not.toBeInTheDocument();
+    expect(screen.queryByText(/最近 .* 答卷/)).not.toBeInTheDocument();
   });
 
-  it('opens response detail view with question labels', () => {
+  it('switches to inspector when a canvas block is selected', () => {
     render(
       <EditorShell
         surveyId="demo"
@@ -216,39 +190,13 @@ describe('EditorShell', () => {
             updatedAt: '2026-04-13T00:00:00.000Z'
           }
         }}
-        publishState={{
-          status: 'published',
-          message: '已发布 v2',
-          publishedVersion: 2
-        }}
-        recentResponses={[
-          {
-            id: 'resp-1',
-            surveyId: 'demo',
-            version: 2,
-            submittedAt: '2026-04-13T12:00:00.000Z',
-            answers: {
-              'input-1': '张三',
-              'multi-1': ['产品体验', '客服响应']
-            }
-          }
-        ]}
-        responseCount={1}
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: '查看详情 resp-1' }));
-
-    const detailSection = screen.getByText('答卷详情').closest('section');
-
-    expect(detailSection).not.toBeNull();
-    expect(within(detailSection as HTMLElement).getByText('姓名')).toBeInTheDocument();
-    expect(within(detailSection as HTMLElement).getByText('张三')).toBeInTheDocument();
-    expect(within(detailSection as HTMLElement).getByText('关注方向')).toBeInTheDocument();
-    expect(within(detailSection as HTMLElement).getByText('产品体验、客服响应')).toBeInTheDocument();
-
-    fireEvent.click(within(detailSection as HTMLElement).getByRole('button', { name: '关闭详情' }));
-    expect(screen.getByText('选择一份答卷查看详情')).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'AI 助手' })).toHaveAttribute('aria-selected', 'true');
+    fireEvent.click(screen.getByLabelText('姓名'));
+    expect(screen.getByRole('tab', { name: '属性面板' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByLabelText('题目标题')).toHaveValue('姓名');
   });
 
   it('shows top bar share actions when survey is published', async () => {
@@ -319,43 +267,6 @@ describe('EditorShell', () => {
         })
       );
     });
-  });
-
-  it('shows response inbox summary for recent responses', () => {
-    render(
-      <EditorShell
-        surveyId="demo"
-        publishState={{
-          status: 'published',
-          message: '已发布 v3',
-          publishedVersion: 3
-        }}
-        recentResponses={[
-          {
-            id: 'resp-3',
-            surveyId: 'demo',
-            version: 3,
-            submittedAt: '2026-04-13T12:20:00.000Z',
-            answers: {
-              'input-1': '王五'
-            }
-          },
-          {
-            id: 'resp-2',
-            surveyId: 'demo',
-            version: 3,
-            submittedAt: '2026-04-13T12:10:00.000Z',
-            answers: {
-              'input-1': '李四'
-            }
-          }
-        ]}
-        responseCount={8}
-      />
-    );
-
-    expect(screen.getByText('最近 2 条 · 共 8 份答卷')).toBeInTheDocument();
-    expect(screen.getByText('已为你展示最新提交的答卷，可继续刷新获取最新状态。')).toBeInTheDocument();
   });
 
   it('shows ai preview before apply and then updates the canvas', async () => {

@@ -72,7 +72,8 @@ describe('HomePage', () => {
     const publishedCard = screen.getByText('活动报名表').closest('article');
     expect(publishedCard).not.toBeNull();
     expect(within(publishedCard as HTMLElement).queryByRole('link', { name: '继续编辑' })).not.toBeInTheDocument();
-    expect(within(publishedCard as HTMLElement).getByRole('link', { name: '查看分析' })).toBeInTheDocument();
+    expect(within(publishedCard as HTMLElement).getByRole('link', { name: '查看填写页' })).toHaveAttribute('href', '/f/demo');
+    expect(within(publishedCard as HTMLElement).getByRole('button', { name: '复制问卷' })).toBeInTheDocument();
     expect(within(publishedCard as HTMLElement).getByRole('link', { name: '填写页' })).toBeInTheDocument();
     fireEvent.click(within(publishedCard as HTMLElement).getByRole('button', { name: '复制链接' }));
 

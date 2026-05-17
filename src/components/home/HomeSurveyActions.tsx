@@ -12,7 +12,7 @@ export function HomeSurveyActions({
   responseCount: number;
 }) {
   const [copyMessage, setCopyMessage] = useState('');
-  const isLocked = published && responseCount > 0;
+  const [isDuplicating, setIsDuplicating] = useState(false);
   const fillPath = `/f/${surveyId}`;
   const fillUrl = useMemo(() => {
     if (typeof window === 'undefined') {
@@ -39,6 +39,28 @@ export function HomeSurveyActions({
     }
   }
 
+  async function handleDuplicateSurvey() {
+    setIsDuplicating(true);
+    setCopyMessage('');
+
+    try {
+      const response = await fetch(`/api/surveys/${surveyId}/copy`, {
+        method: 'POST'
+      });
+
+      if (!response.ok) {
+        throw new Error('Survey duplicate failed');
+      }
+
+      const payload = await response.json();
+      window.location.href = `/editor/${payload.surveyId}`;
+    } catch (error) {
+      setCopyMessage('复制问卷失败');
+      setTimeout(() => setCopyMessage(''), 2000);
+      setIsDuplicating(false);
+    }
+  }
+
   return (
     <div className="flex items-center justify-end gap-2">
       {copyMessage && (
@@ -51,14 +73,18 @@ export function HomeSurveyActions({
         </button>
       ) : null}
 
+      <button className="ui-btn ui-btn-secondary" disabled={isDuplicating} onClick={handleDuplicateSurvey} type="button">
+        {isDuplicating ? '复制中...' : '复制问卷'}
+      </button>
+
       {published ? (
         <a className="ui-btn ui-btn-secondary" href={fillPath}>
           填写页
         </a>
       ) : null}
 
-      <a className="ui-btn ui-btn-primary" href={`/editor/${surveyId}`}>
-        {isLocked ? '查看分析' : '继续编辑'}
+      <a className="ui-btn ui-btn-primary" href={published ? fillPath : `/editor/${surveyId}`}>
+        {published ? '查看填写页' : '继续编辑'}
       </a>
     </div>
   );

@@ -77,7 +77,7 @@ export function PublishedSurveyPage({
           width: '100%',
           maxWidth: 760,
           background: '#fff',
-          borderRadius: isCompact ? 16 : 24,
+          borderRadius: 8,
           border: '1px solid #d7deea',
           padding: isCompact ? 16 : 24,
           display: 'flex',
@@ -110,18 +110,17 @@ export function PublishedSurveyPage({
               公开填写页
             </span>
             <strong>{document.title}</strong>
-            <p style={{ margin: '6px 0 0', color: '#667085' }}>问卷 ID：{surveyId}</p>
             <p style={{ margin: 0, color: '#667085' }}>共 {questionCount} 题 · 当前版本 v{document.meta.version}</p>
             <p style={{ margin: 0, color: '#667085' }}>支持 PC 与移动端访问，提交后会直接进入答卷收集列表。</p>
           </div>
-          <a href={`/editor/${surveyId}`}>返回编辑器</a>
+          <a className="ui-btn ui-btn-secondary" href="/">返回工作台</a>
         </header>
 
         {submitted ? (
           <section
             style={{
               border: '1px solid #d7deea',
-              borderRadius: 16,
+              borderRadius: 8,
               padding: 20,
               background: '#f8fafc'
             }}
@@ -133,7 +132,6 @@ export function PublishedSurveyPage({
             </p>
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 12 }}>
               <a href="/">返回工作台</a>
-              <a href={`/editor/${surveyId}`}>返回编辑器</a>
               <button
                 onClick={() => {
                   setSubmitted(null);
@@ -182,7 +180,7 @@ export function PublishedSurveyPage({
             <section
               style={{
                 border: '1px solid #d7deea',
-                borderRadius: 16,
+                borderRadius: 8,
                 background: '#f8fafc',
                 padding: isCompact ? 14 : 18,
                 display: 'flex',

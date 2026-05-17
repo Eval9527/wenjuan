@@ -1,6 +1,6 @@
 'use client';
 
-import type { ChoiceOption, SurveyBlock } from '@/features/survey-schema/schema';
+import type { ChoiceOption, SurveyBlock, TitleBlock } from '@/features/survey-schema/schema';
 import { useEditorStore } from './editor-store-context';
 
 function Field({
@@ -76,25 +76,18 @@ export function InspectorPanel({ readOnly = false }: { readOnly?: boolean }) {
 
   if (!selectedBlock) {
     return (
-      <section className="flex flex-col gap-4">
-        <div>
-          <h3 className="ui-section-title text-[18px]">属性面板</h3>
-          <p className="mt-2 mb-0 text-sm leading-6 text-[#667085]">选中一个题目后，在这里修改标题、描述、选项和必填等属性。</p>
-        </div>
-        <div className="ui-panel-soft p-4 text-sm leading-6 text-[#667085]">当前未选中题目。你可以先点击中间画布里的任意题目，再回来编辑属性。</div>
+      <section className="flex flex-col gap-4 items-center justify-center h-full text-center mt-10 text-[#94a3b8] text-sm">
+        <div>请先在左侧或中间画布选中一个组件</div>
       </section>
     );
   }
 
   return (
     <section className="flex flex-col gap-4">
-      <div className="space-y-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <h3 className="ui-section-title text-[18px]">属性面板</h3>
-          <span className="ui-chip">{getBlockTypeLabel(selectedBlock.type)}</span>
-          {readOnly ? <span className="ui-chip ui-chip-warning">只读</span> : null}
-        </div>
-        <p className="m-0 text-sm leading-6 text-[#667085]">当前面板只保留最核心的可用属性，先把最小可用题型打磨顺手。</p>
+      <div className="flex flex-wrap items-center gap-2 pb-3 border-b border-[#e2e8f0]">
+        <h3 className="text-[16px] font-bold text-[#0f172a] m-0">组件属性</h3>
+        <span className="ui-chip bg-[#f1f5f9] text-[#475467]">{getBlockTypeLabel(selectedBlock.type)}</span>
+        {readOnly ? <span className="ui-chip ui-chip-warning">只读</span> : null}
       </div>
 
       <div className="flex flex-col gap-4">
@@ -109,45 +102,71 @@ export function InspectorPanel({ readOnly = false }: { readOnly?: boolean }) {
           />
         </Field>
 
-        <Field label="题目描述">
-          <textarea
-            aria-label="题目描述"
-            className="ui-textarea"
-            disabled={readOnly}
-            onChange={(event) => patchSelectedBlock({ description: event.target.value || undefined })}
-            rows={3}
-            value={selectedBlock.description ?? ''}
-          />
-        </Field>
+        {selectedBlock.type !== 'title' ? (
+          <>
+            <Field label="题目描述">
+              <textarea
+                aria-label="题目描述"
+                className="ui-textarea"
+                disabled={readOnly}
+                onChange={(event) => patchSelectedBlock({ description: event.target.value || undefined })}
+                rows={3}
+                value={selectedBlock.description ?? ''}
+              />
+            </Field>
 
-        <label className="flex items-center gap-3 rounded-2xl border border-[#d7dee8] bg-[#f8fafc] px-4 py-3 text-sm font-medium text-[#101828]">
-          <input
-            aria-label="必填"
-            checked={selectedBlock.required ?? false}
-            disabled={readOnly}
-            onChange={(event) => patchSelectedBlock({ required: event.target.checked || undefined })}
-            type="checkbox"
-          />
-          <span>设为必填</span>
-        </label>
+            <label className="flex items-center gap-3 rounded-2xl border border-[#d7dee8] bg-[#f8fafc] px-4 py-3 text-sm font-medium text-[#101828]">
+              <input
+                aria-label="必填"
+                checked={selectedBlock.required ?? false}
+                disabled={readOnly}
+                onChange={(event) => patchSelectedBlock({ required: event.target.checked || undefined })}
+                type="checkbox"
+              />
+              <span>设为必填</span>
+            </label>
+          </>
+        ) : null}
 
         {selectedBlock.type === 'title' ? (
-          <Field label="标题层级">
-            <select
-              aria-label="标题层级"
-              className="ui-select"
-              disabled={readOnly}
-              onChange={(event) =>
-                patchSelectedBlock({
-                  level: Number(event.target.value) === 2 ? 2 : 1
-                })
-              }
-              value={selectedBlock.level}
-            >
-              <option value={1}>主标题</option>
-              <option value={2}>小标题</option>
-            </select>
-          </Field>
+          <>
+            <Field label="标题层级">
+              <select
+                aria-label="标题层级"
+                className="ui-select"
+                disabled={readOnly}
+                onChange={(event) => {
+                  const val = event.target.value;
+                  patchSelectedBlock({
+                    level: val === 'p' ? 'p' : (Number(val) as TitleBlock['level'])
+                  } as Partial<SurveyBlock>);
+                }}
+                value={String(selectedBlock.level)}
+              >
+                <option value={1}>主标题 (H1)</option>
+                <option value={2}>大标题 (H2)</option>
+                <option value={3}>小标题 (H3)</option>
+                <option value="p">正文段落</option>
+              </select>
+            </Field>
+            <Field label="对齐方式">
+              <select
+                aria-label="对齐方式"
+                className="ui-select"
+                disabled={readOnly}
+                onChange={(event) =>
+                  patchSelectedBlock({
+                    align: event.target.value as TitleBlock['align']
+                  } as Partial<SurveyBlock>)
+                }
+                value={selectedBlock.align || 'left'}
+              >
+                <option value="left">居左</option>
+                <option value="center">居中</option>
+                <option value="right">居右</option>
+              </select>
+            </Field>
+          </>
         ) : null}
 
         {selectedBlock.type === 'input' ? (

@@ -2,12 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { EditorShell, type EditorPersistenceState, type EditorPublishState } from '@/components/editor/EditorShell';
-import type { ResponseFeedState } from '@/components/editor/SurveyDeliveryPanel';
-import type { SurveyResponseRecord } from '@/features/persistence/contracts';
 import { createEmptySurvey } from '@/features/survey-schema/factories';
 import { surveyDocumentSchema, type SurveyDocument } from '@/features/survey-schema/schema';
 
-const AUTOSAVE_DELAY = 800;
+const AUTOSAVE_DELAY = 2500;
 
 function createPublishState(publishedVersion: number | null, hasUnpublishedChanges = false): EditorPublishState {
   if (!publishedVersion) {
@@ -32,58 +30,62 @@ export function EditorWorkspace({ surveyId }: { surveyId: string }) {
     status: 'idle',
     message: '草稿尚未保存'
   });
+  const allowHistoryBackRef = useRef(false);
+  const pushedHistoryGuardRef = useRef(false);
+
+  useEffect(() => {
+    const shouldWarn = persistenceState.status === 'saving' || persistenceState.status === 'error';
+    const message = '当前更改还没有保存完成，确定要离开编辑器吗？';
+
+    function handleBeforeUnload(event: BeforeUnloadEvent) {
+      if (!shouldWarn) {
+        return;
+      }
+
+      event.preventDefault();
+      event.returnValue = message;
+    }
+
+    function handlePopState() {
+      if (allowHistoryBackRef.current) {
+        return;
+      }
+
+      if (!shouldWarn) {
+        allowHistoryBackRef.current = true;
+        window.history.back();
+        return;
+      }
+
+      if (window.confirm(message)) {
+        allowHistoryBackRef.current = true;
+        window.history.back();
+        return;
+      }
+
+      window.history.pushState({ wenjuanEditorGuard: true }, '', window.location.href);
+    }
+
+    if (!pushedHistoryGuardRef.current) {
+      window.history.pushState({ ...(window.history.state ?? {}), wenjuanEditorGuard: true }, '', window.location.href);
+      pushedHistoryGuardRef.current = true;
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('popstate', handlePopState);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [persistenceState.status]);
+
   const [publishState, setPublishState] = useState<EditorPublishState>(createPublishState(null));
   const [responseCount, setResponseCount] = useState(0);
-  const [recentResponses, setRecentResponses] = useState<SurveyResponseRecord[]>([]);
-  const [responseFeedState, setResponseFeedState] = useState<ResponseFeedState>({
-    status: 'idle',
-    message: '发布后即可查看填写链接与最近答卷'
-  });
   const latestSurveyRef = useRef<SurveyDocument | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const requestSequenceRef = useRef(0);
   const publishedVersionRef = useRef<number | null>(null);
-
-  const loadResponses = useCallback(async () => {
-    if (!publishedVersionRef.current) {
-      setRecentResponses([]);
-      setResponseFeedState({
-        status: 'idle',
-        message: '发布后即可查看填写链接与最近答卷'
-      });
-      return;
-    }
-
-    setResponseFeedState({
-      status: 'loading',
-      message: '正在刷新最近答卷...'
-    });
-
-    try {
-      const response = await fetch(`/api/surveys/${surveyId}/responses`);
-
-      if (!response.ok) {
-        throw new Error('Survey responses load failed');
-      }
-
-      const payload = await response.json();
-      const responses = Array.isArray(payload.responses) ? payload.responses : [];
-      const nextResponseCount = typeof payload.responseCount === 'number' ? payload.responseCount : responses.length;
-
-      setRecentResponses(responses);
-      setResponseCount(nextResponseCount);
-      setResponseFeedState({
-        status: 'idle',
-        message: nextResponseCount ? `已同步最近 ${responses.length} 条答卷` : '还没有收到答卷'
-      });
-    } catch (error) {
-      setRecentResponses([]);
-      setResponseFeedState({
-        status: 'error',
-        message: error instanceof Error ? '答卷加载失败，请稍后重试' : '答卷加载失败'
-      });
-    }
-  }, [surveyId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -109,11 +111,6 @@ export function EditorWorkspace({ surveyId }: { surveyId: string }) {
           publishedVersionRef.current = null;
           setPublishState(createPublishState(null));
           setResponseCount(0);
-          setRecentResponses([]);
-          setResponseFeedState({
-            status: 'idle',
-            message: '发布后即可查看填写链接与最近答卷'
-          });
           return;
         }
 
@@ -122,7 +119,11 @@ export function EditorWorkspace({ surveyId }: { surveyId: string }) {
         }
 
         const payload = await response.json();
-        const document = surveyDocumentSchema.parse(payload.document);
+        const draftDocument = surveyDocumentSchema.parse(payload.document);
+        const publishedDocument = payload.published?.document
+          ? surveyDocumentSchema.parse(payload.published.document)
+          : null;
+        const document = publishedDocument ?? draftDocument;
 
         if (cancelled) {
           return;
@@ -134,25 +135,16 @@ export function EditorWorkspace({ surveyId }: { surveyId: string }) {
           typeof payload.published?.version === 'number' ? payload.published.version : null;
         setPersistenceState({
           status: 'saved',
-          message: '草稿已加载'
+          message: publishedDocument ? '已加载已发布版本，只读预览' : '草稿已加载'
         });
         setPublishState(
           createPublishState(
             publishedVersionRef.current,
-            Boolean(publishedVersionRef.current && document.meta.version > publishedVersionRef.current)
+            Boolean(publishedVersionRef.current && draftDocument.meta.version > publishedVersionRef.current)
           )
         );
         setResponseCount(typeof payload.responseCount === 'number' ? payload.responseCount : 0);
 
-        if (publishedVersionRef.current) {
-          void loadResponses();
-        } else {
-          setRecentResponses([]);
-          setResponseFeedState({
-            status: 'idle',
-            message: '发布后即可查看填写链接与最近答卷'
-          });
-        }
       } catch (error) {
         if (cancelled) {
           return;
@@ -168,11 +160,6 @@ export function EditorWorkspace({ surveyId }: { surveyId: string }) {
         publishedVersionRef.current = null;
         setPublishState(createPublishState(null));
         setResponseCount(0);
-        setRecentResponses([]);
-        setResponseFeedState({
-          status: 'error',
-          message: '答卷面板暂时不可用'
-        });
       } finally {
         if (!cancelled) {
           setIsLoading(false);
@@ -189,10 +176,14 @@ export function EditorWorkspace({ surveyId }: { surveyId: string }) {
         clearTimeout(saveTimerRef.current);
       }
     };
-  }, [loadResponses, surveyId]);
+  }, [surveyId]);
 
   const handleSurveyChange = useCallback(
     (survey: SurveyDocument) => {
+      if (publishedVersionRef.current) {
+        return;
+      }
+
       latestSurveyRef.current = survey;
       setPersistenceState({
         status: 'saving',
@@ -293,7 +284,6 @@ export function EditorWorkspace({ surveyId }: { surveyId: string }) {
       const payload = await response.json();
       publishedVersionRef.current = payload.version;
       setPublishState(createPublishState(payload.version));
-      await loadResponses();
     } catch (error) {
       setPublishState((current) => ({
         ...current,
@@ -326,9 +316,6 @@ export function EditorWorkspace({ surveyId }: { surveyId: string }) {
     <EditorShell
       initialSurvey={initialSurvey}
       onPublish={handlePublish}
-      onRefreshResponses={loadResponses}
-      recentResponses={recentResponses}
-      responseFeedState={responseFeedState}
       onSurveyChange={handleSurveyChange}
       persistenceState={persistenceState}
       publishState={publishState}

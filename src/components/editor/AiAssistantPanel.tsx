@@ -63,7 +63,12 @@ export function AiAssistantPanel({ readOnly = false }: { readOnly?: boolean }) {
   return (
     <section className="flex flex-col gap-4">
       <div className="space-y-2">
-        <h3 className="ui-section-title text-[18px]">AI 助手</h3>
+        <h3 className="ui-section-title text-[18px] flex items-center gap-2">
+          <span aria-hidden="true" className="ai-title-icon">
+            AI
+          </span>
+          <span>AI 助手</span>
+        </h3>
         <p className="m-0 text-sm leading-6 text-[#667085]">直接描述你想生成或修改的问卷内容，先看变更预览，再决定是否应用。</p>
       </div>
 
@@ -117,22 +122,38 @@ export function AiAssistantPanel({ readOnly = false }: { readOnly?: boolean }) {
       </label>
 
       <button
-        className="ui-btn ui-btn-primary w-full"
+        aria-label={isLoading ? '生成中' : '生成修改建议'}
+        className={[
+          'ui-btn ui-btn-primary w-full ai-generate-button',
+          isLoading ? 'ai-generate-button--loading' : ''
+        ].join(' ')}
         disabled={!prompt.trim() || isLoading || readOnly}
         onClick={() => requestChanges()}
         type="button"
       >
-        {isLoading ? '生成中...' : '生成修改建议'}
+        <span className="flex items-center justify-center gap-2">
+          <span aria-hidden="true" className="ai-button-spark">✦</span>
+          {isLoading ? '生成中...' : '生成修改建议'}
+        </span>
       </button>
 
       {error ? <p className="m-0 text-sm text-[#b42318]">{error}</p> : null}
       {pendingChangeSet ? (
-        <AiChangePreview
-          changeSet={pendingChangeSet}
-          currentDocument={survey}
-          onApply={applyPendingChangeSet}
-          onDiscard={discardPendingChangeSet}
-        />
+        <div
+          aria-labelledby="ai-change-preview-title"
+          aria-modal="true"
+          className="editor-ai-modal-backdrop"
+          role="dialog"
+        >
+          <div className="editor-ai-modal">
+            <AiChangePreview
+              changeSet={pendingChangeSet}
+              currentDocument={survey}
+              onApply={applyPendingChangeSet}
+              onDiscard={discardPendingChangeSet}
+            />
+          </div>
+        </div>
       ) : null}
     </section>
   );

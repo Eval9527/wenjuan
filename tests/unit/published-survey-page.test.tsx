@@ -49,7 +49,8 @@ describe('PublishedSurveyPage', () => {
       />
     );
 
-    expect(screen.getByRole('link', { name: '返回编辑器' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '返回工作台' })).toBeInTheDocument();
+    expect(screen.queryByText(/问卷 ID/)).not.toBeInTheDocument();
     expect(screen.getByText('共 2 题 · 当前版本 v2')).toBeInTheDocument();
     expect(screen.getByText('支持 PC 与移动端访问，提交后会直接进入答卷收集列表。')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '提交问卷' })).toBeInTheDocument();
@@ -64,7 +65,7 @@ describe('PublishedSurveyPage', () => {
     expect(successSection).not.toBeNull();
     expect(screen.getByText('已累计收到 1 份答卷。')).toBeInTheDocument();
     expect(within(successSection as HTMLElement).getByRole('link', { name: '返回工作台' })).toBeInTheDocument();
-    expect(within(successSection as HTMLElement).getByRole('link', { name: '返回编辑器' })).toBeInTheDocument();
+    expect(within(successSection as HTMLElement).queryByRole('link', { name: '返回编辑器' })).not.toBeInTheDocument();
     expect(within(successSection as HTMLElement).getByRole('button', { name: '再填写一份' })).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock).toHaveBeenCalledWith(
