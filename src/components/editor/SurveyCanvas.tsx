@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef, type DragEvent } from 'react';
 import {
   closestCenter,
   DndContext,
@@ -19,6 +20,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { blockRegistry } from '@/features/block-library/registry';
 import { resolveDragMove } from '@/features/editor-core/drag-sort';
 import type { SurveyBlock } from '@/features/survey-schema/schema';
+import { isPaletteBlockType, PALETTE_BLOCK_DRAG_TYPE } from './editor-dnd';
 import { useEditorStore } from './editor-store-context';
 
 function getBlockDisplayLabel(block: SurveyBlock) {
@@ -39,16 +41,23 @@ function EmptyCanvasState() {
   );
 }
 
+function hasPaletteBlockDrag(dataTransfer: DataTransfer) {
+  return Array.from(dataTransfer.types ?? []).includes(PALETTE_BLOCK_DRAG_TYPE) ||
+    isPaletteBlockType(dataTransfer.getData(PALETTE_BLOCK_DRAG_TYPE));
+}
+
 function SortableCanvasBlockCard({
   block,
   selectedBlockId,
   onSelect,
-  readOnly
+  readOnly,
+  registerCanvasElement
 }: {
   block: SurveyBlock;
   selectedBlockId: string | null;
   onSelect: (blockId: string) => void;
   readOnly: boolean;
+  registerCanvasElement: (blockId: string, element: HTMLElement | null) => void;
 }) {
   const Renderer = blockRegistry[block.type];
   const {
@@ -63,6 +72,11 @@ function SortableCanvasBlockCard({
   const isSelected = selectedBlockId === block.id;
   const displayLabel = getBlockDisplayLabel(block);
 
+  function setCanvasNode(node: HTMLElement | null) {
+    setNodeRef(node);
+    registerCanvasElement(block.id, node);
+  }
+
   return (
     <article
       aria-selected={isSelected}
@@ -72,7 +86,7 @@ function SortableCanvasBlockCard({
       ].join(' ')}
       data-testid="canvas-block-card"
       onClick={() => onSelect(block.id)}
-      ref={setNodeRef}
+      ref={setCanvasNode}
       style={{
         cursor: isDragging ? 'grabbing' : 'pointer',
         opacity: isDragging ? 0.6 : 1,
@@ -111,7 +125,9 @@ export function SurveyCanvas({ readOnly = false }: { readOnly?: boolean }) {
   const previewMode = useEditorStore((state) => state.previewMode);
   const selectedBlockId = useEditorStore((state) => state.selectedBlockId);
   const selectBlock = useEditorStore((state) => state.selectBlock);
+  const addBlock = useEditorStore((state) => state.addBlock);
   const moveBlock = useEditorStore((state) => state.moveBlock);
+  const canvasElementRefs = useRef(new Map<string, HTMLElement>());
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -141,12 +157,58 @@ export function SurveyCanvas({ readOnly = false }: { readOnly?: boolean }) {
     moveBlock(String(event.active.id), resolution.targetBlockId);
   }
 
+  function registerCanvasElement(blockId: string, element: HTMLElement | null) {
+    if (!element) {
+      canvasElementRefs.current.delete(blockId);
+      return;
+    }
+
+    canvasElementRefs.current.set(blockId, element);
+  }
+
+  function handlePaletteDragOver(event: DragEvent<HTMLDivElement>) {
+    if (readOnly || !hasPaletteBlockDrag(event.dataTransfer)) {
+      return;
+    }
+
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'copy';
+  }
+
+  function handlePaletteDrop(event: DragEvent<HTMLDivElement>) {
+    if (readOnly) {
+      return;
+    }
+
+    const blockType = event.dataTransfer.getData(PALETTE_BLOCK_DRAG_TYPE);
+
+    if (!isPaletteBlockType(blockType)) {
+      return;
+    }
+
+    event.preventDefault();
+    addBlock({ type: blockType });
+  }
+
+  useEffect(() => {
+    if (!selectedBlockId) {
+      return;
+    }
+
+    canvasElementRefs.current.get(selectedBlockId)?.scrollIntoView?.({
+      block: 'nearest',
+      inline: 'nearest'
+    });
+  }, [selectedBlockId, survey.blocks.length]);
+
   return (
     <main className="editor-canvas-stage" onClick={() => selectBlock('')}>
       <div
         className="editor-preview-frame"
         data-preview-mode={previewMode}
         data-testid="preview-frame"
+        onDragOver={handlePaletteDragOver}
+        onDrop={handlePaletteDrop}
         onClick={(e) => e.stopPropagation()}
       >
         {survey.blocks.length ? (
@@ -159,6 +221,7 @@ export function SurveyCanvas({ readOnly = false }: { readOnly?: boolean }) {
                     key={block.id}
                     onSelect={selectBlock}
                     readOnly={readOnly}
+                    registerCanvasElement={registerCanvasElement}
                     selectedBlockId={selectedBlockId}
                   />
                 ))}

@@ -6,6 +6,29 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+function mockScrollIntoView() {
+  const scrollIntoView = vi.fn();
+  Object.defineProperty(window.HTMLElement.prototype, 'scrollIntoView', {
+    configurable: true,
+    value: scrollIntoView
+  });
+
+  return scrollIntoView;
+}
+
+function createDataTransfer() {
+  const store = new Map<string, string>();
+
+  return {
+    dropEffect: 'none',
+    effectAllowed: 'uninitialized',
+    getData: vi.fn((type: string) => store.get(type) ?? ''),
+    setData: vi.fn((type: string, value: string) => {
+      store.set(type, value);
+    })
+  };
+}
+
 describe('EditorShell', () => {
   it('renders palette, preview controls, and side panel tabs', () => {
     render(<EditorShell surveyId="demo" />);
@@ -61,6 +84,86 @@ describe('EditorShell', () => {
 
     expect(screen.getByRole('button', { name: '拖拽排序 新标题' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '拖拽排序 填写题' })).toBeInTheDocument();
+  });
+
+  it('scrolls a newly added canvas block into view', async () => {
+    const scrollIntoView = mockScrollIntoView();
+
+    render(<EditorShell surveyId="demo" />);
+
+    fireEvent.click(screen.getByRole('button', { name: '填写框' }));
+
+    await waitFor(() => {
+      expect(scrollIntoView).toHaveBeenCalled();
+    });
+
+    const scrolledElement = scrollIntoView.mock.contexts.at(-1) as HTMLElement;
+    expect(within(scrolledElement).getByLabelText('填写题')).toBeInTheDocument();
+  });
+
+  it('scrolls the matching outline row into view when selecting a canvas block while outline is open', async () => {
+    const scrollIntoView = mockScrollIntoView();
+
+    render(
+      <EditorShell
+        surveyId="demo"
+        initialSurvey={{
+          id: 'demo',
+          title: '长问卷',
+          blocks: [
+            { id: 'title-1', type: 'title', label: '长问卷', level: 1 },
+            { id: 'input-1', type: 'input', label: '姓名', placeholder: '请输入姓名' },
+            { id: 'input-2', type: 'input', label: '手机号', placeholder: '请输入手机号' },
+            {
+              id: 'single-1',
+              type: 'singleChoice',
+              label: '参与场次',
+              options: [
+                { id: 's1', text: '上午' },
+                { id: 's2', text: '下午' }
+              ]
+            }
+          ],
+          settings: { submitLabel: '提交' },
+          meta: {
+            version: 1,
+            createdAt: '2026-04-13T00:00:00.000Z',
+            updatedAt: '2026-04-13T00:00:00.000Z'
+          }
+        }}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: '大纲视图' }));
+    scrollIntoView.mockClear();
+
+    fireEvent.click(screen.getByLabelText('手机号'));
+
+    await waitFor(() => {
+      expect(scrollIntoView).toHaveBeenCalled();
+    });
+
+    const scrolledOutline = scrollIntoView.mock.contexts.find((element) =>
+      element instanceof HTMLElement &&
+      element.dataset.testid === 'outline-block-row' &&
+      element.textContent?.includes('手机号')
+    );
+
+    expect(scrolledOutline).toBeTruthy();
+  });
+
+  it('adds a block by dragging a palette item onto the canvas', () => {
+    render(<EditorShell surveyId="demo" />);
+
+    const dataTransfer = createDataTransfer();
+    fireEvent.dragStart(screen.getByRole('button', { name: '单选' }), { dataTransfer });
+
+    expect(dataTransfer.setData).toHaveBeenCalledWith('application/x-wenjuan-block-type', 'singleChoice');
+
+    fireEvent.dragOver(screen.getByTestId('preview-frame'), { dataTransfer });
+    fireEvent.drop(screen.getByTestId('preview-frame'), { dataTransfer });
+
+    expect(screen.getByRole('group', { name: '单选题' })).toBeInTheDocument();
   });
 
   it('locks editing when a published survey already has responses', () => {

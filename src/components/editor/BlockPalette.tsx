@@ -18,8 +18,9 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { resolveDragMove } from '@/features/editor-core/drag-sort';
 import type { SurveyBlock, SurveyBlockType } from '@/features/survey-schema/schema';
+import { PALETTE_BLOCK_DRAG_TYPE } from './editor-dnd';
 import { useEditorStore } from './editor-store-context';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 const groups: Array<{
   title: string;
@@ -75,13 +76,15 @@ function SortableOutlineItem({
   index,
   selectedBlockId,
   onSelect,
-  readOnly
+  readOnly,
+  registerOutlineElement
 }: {
   block: SurveyBlock;
   index: number;
   selectedBlockId: string | null;
   onSelect: (blockId: string) => void;
   readOnly: boolean;
+  registerOutlineElement: (blockId: string, element: HTMLElement | null) => void;
 }) {
   const {
     attributes,
@@ -96,9 +99,15 @@ function SortableOutlineItem({
   const isSelected = selectedBlockId === block.id;
   const displayLabel = getBlockDisplayLabel(block);
 
+  function setOutlineNode(node: HTMLDivElement | null) {
+    setNodeRef(node);
+    registerOutlineElement(block.id, node);
+  }
+
   return (
     <div
-      ref={setNodeRef}
+      data-testid="outline-block-row"
+      ref={setOutlineNode}
       className={[
         'editor-outline-row',
         isSelected ? 'editor-outline-row--active' : '',
@@ -148,6 +157,7 @@ export function BlockPalette({ readOnly = false }: { readOnly?: boolean }) {
   const selectBlock = useEditorStore((state) => state.selectBlock);
   const moveBlock = useEditorStore((state) => state.moveBlock);
   const [activeTab, setActiveTab] = useState<'components' | 'layers'>('components');
+  const outlineElementRefs = useRef(new Map<string, HTMLElement>());
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -162,6 +172,26 @@ export function BlockPalette({ readOnly = false }: { readOnly?: boolean }) {
       moveBlock(String(active.id), resolution.targetBlockId);
     }
   }
+
+  function registerOutlineElement(blockId: string, element: HTMLElement | null) {
+    if (!element) {
+      outlineElementRefs.current.delete(blockId);
+      return;
+    }
+
+    outlineElementRefs.current.set(blockId, element);
+  }
+
+  useEffect(() => {
+    if (activeTab !== 'layers' || !selectedBlockId) {
+      return;
+    }
+
+    outlineElementRefs.current.get(selectedBlockId)?.scrollIntoView?.({
+      block: 'nearest',
+      inline: 'nearest'
+    });
+  }, [activeTab, blocks.length, selectedBlockId]);
 
   return (
     <aside className="editor-side-panel editor-side-panel--left">
@@ -204,8 +234,17 @@ export function BlockPalette({ readOnly = false }: { readOnly?: boolean }) {
                       aria-label={item.label}
                       className="editor-palette-item"
                       disabled={readOnly}
+                      draggable={!readOnly}
                       key={item.type}
                       onClick={() => addBlock({ type: item.type })}
+                      onDragStart={(event) => {
+                        if (readOnly) {
+                          return;
+                        }
+
+                        event.dataTransfer.effectAllowed = 'copy';
+                        event.dataTransfer.setData(PALETTE_BLOCK_DRAG_TYPE, item.type);
+                      }}
                       type="button"
                     >
                       <span className="editor-palette-icon" aria-hidden="true">{item.icon}</span>
@@ -234,6 +273,7 @@ export function BlockPalette({ readOnly = false }: { readOnly?: boolean }) {
                       selectedBlockId={selectedBlockId}
                       onSelect={selectBlock}
                       readOnly={readOnly}
+                      registerOutlineElement={registerOutlineElement}
                     />
                   ))}
                 </SortableContext>
