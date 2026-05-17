@@ -18,7 +18,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { blockRegistry } from '@/features/block-library/registry';
-import { resolveDragMove } from '@/features/editor-core/drag-sort';
+import { resolveDragMove, restrictToVerticalTranslate } from '@/features/editor-core/drag-sort';
 import type { SurveyBlock } from '@/features/survey-schema/schema';
 import { isPaletteBlockType, PALETTE_BLOCK_DRAG_TYPE } from './editor-dnd';
 import { useEditorStore } from './editor-store-context';
@@ -98,7 +98,7 @@ function SortableCanvasBlockCard({
       style={{
         cursor: isDragging ? 'grabbing' : 'pointer',
         opacity: isDragging ? 0.6 : 1,
-        transform: CSS.Translate.toString(transform),
+        transform: CSS.Translate.toString(restrictToVerticalTranslate(transform)),
         transition,
         zIndex: isDragging ? 100 : 1
       }}

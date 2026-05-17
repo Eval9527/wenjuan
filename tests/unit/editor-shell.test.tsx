@@ -48,6 +48,17 @@ describe('EditorShell', () => {
     expect(screen.queryByRole('link', { name: '打开填写页' })).not.toBeInTheDocument();
   });
 
+  it('keeps the empty component properties panel from forcing an internal scrollbar', () => {
+    render(<EditorShell surveyId="demo" />);
+
+    fireEvent.click(screen.getByRole('tab', { name: '组件属性' }));
+
+    const emptyState = screen.getByTestId('inspector-empty-state');
+    expect(emptyState).toHaveTextContent('请先在左侧或中间画布选中一个组件');
+    expect(emptyState).not.toHaveClass('h-full');
+    expect(emptyState).not.toHaveClass('mt-10');
+  });
+
   it('does not show response count in the editor top bar', () => {
     render(<EditorShell surveyId="demo" responseCount={0} />);
 

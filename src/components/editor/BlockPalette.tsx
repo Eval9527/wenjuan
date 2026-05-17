@@ -16,7 +16,7 @@ import {
   verticalListSortingStrategy
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { resolveDragMove } from '@/features/editor-core/drag-sort';
+import { resolveDragMove, restrictToVerticalTranslate } from '@/features/editor-core/drag-sort';
 import type { SurveyBlock, SurveyBlockType } from '@/features/survey-schema/schema';
 import { PALETTE_BLOCK_DRAG_TYPE } from './editor-dnd';
 import { useEditorStore } from './editor-store-context';
@@ -115,7 +115,7 @@ function SortableOutlineItem({
       ].join(' ')}
       style={{
         opacity: isDragging ? 0.72 : 1,
-        transform: CSS.Translate.toString(transform),
+        transform: CSS.Translate.toString(restrictToVerticalTranslate(transform)),
         transition,
         zIndex: isDragging ? 10 : 1,
         position: 'relative'

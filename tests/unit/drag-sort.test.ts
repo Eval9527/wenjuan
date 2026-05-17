@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolveDragMove } from '@/features/editor-core/drag-sort';
+import { resolveDragMove, restrictToVerticalTranslate } from '@/features/editor-core/drag-sort';
 
 describe('resolveDragMove', () => {
   it('returns the next block id when dragging a card downward through the list', () => {
@@ -20,5 +20,20 @@ describe('resolveDragMove', () => {
     expect(resolveDragMove(['a', 'b', 'c'], 'b', 'b')).toEqual({
       shouldMove: false
     });
+  });
+});
+
+describe('restrictToVerticalTranslate', () => {
+  it('removes horizontal movement while preserving vertical translate and scale', () => {
+    expect(restrictToVerticalTranslate({ x: 128, y: 42, scaleX: 1, scaleY: 0.98 })).toEqual({
+      x: 0,
+      y: 42,
+      scaleX: 1,
+      scaleY: 0.98
+    });
+  });
+
+  it('keeps null transforms as null', () => {
+    expect(restrictToVerticalTranslate(null)).toBeNull();
   });
 });

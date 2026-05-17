@@ -2,6 +2,24 @@ export type DragMoveResolution =
   | { shouldMove: false }
   | { shouldMove: true; targetBlockId?: string };
 
+type TranslateTransform = {
+  x: number;
+  y: number;
+  scaleX: number;
+  scaleY: number;
+};
+
+export function restrictToVerticalTranslate<T extends TranslateTransform | null>(transform: T): T {
+  if (!transform) {
+    return transform;
+  }
+
+  return {
+    ...transform,
+    x: 0
+  };
+}
+
 export function resolveDragMove(
   blockIds: string[],
   activeId: string,

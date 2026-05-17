@@ -78,7 +78,10 @@ export function InspectorPanel({ readOnly = false }: { readOnly?: boolean }) {
 
   if (!selectedBlock) {
     return (
-      <section className="flex flex-col gap-4 items-center justify-center h-full text-center mt-10 text-[#94a3b8] text-sm">
+      <section
+        className="flex min-h-[220px] flex-col items-center justify-center text-center text-[#94a3b8] text-sm"
+        data-testid="inspector-empty-state"
+      >
         <div>请先在左侧或中间画布选中一个组件</div>
       </section>
     );
