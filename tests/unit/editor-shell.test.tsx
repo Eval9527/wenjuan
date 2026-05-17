@@ -226,6 +226,12 @@ describe('EditorShell', () => {
     Object.defineProperty(dragOverEvent, 'clientY', { value: 170 });
     fireEvent(previewFrame, dragOverEvent);
 
+    const canvasList = screen.getByTestId('editor-canvas-list');
+    const listChildren = Array.from(canvasList.children);
+    expect(screen.getByTestId('canvas-drop-indicator')).toBeInTheDocument();
+    expect(listChildren[1]).toHaveAttribute('data-testid', 'canvas-drop-indicator');
+    expect(screen.getByText('释放后插入到这里')).toBeInTheDocument();
+
     const dropEvent = createEvent.drop(previewFrame, { dataTransfer });
     Object.defineProperty(dropEvent, 'clientY', { value: 170 });
     fireEvent(previewFrame, dropEvent);
@@ -234,6 +240,7 @@ describe('EditorShell', () => {
     expect(within(cards[0]).getByRole('heading', { name: '标题一' })).toBeInTheDocument();
     expect(within(cards[1]).getByRole('group', { name: '单选题' })).toBeInTheDocument();
     expect(within(cards[2]).getByLabelText('姓名')).toBeInTheDocument();
+    expect(screen.queryByTestId('canvas-drop-indicator')).not.toBeInTheDocument();
   });
 
   it('locks editing when a published survey already has responses', () => {

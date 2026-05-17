@@ -4,6 +4,8 @@ import type { AiDraftChangeSet, ChangeOperation } from '@/features/ai-assistant/
 import { blockRegistry } from '@/features/block-library/registry';
 import type { ChoiceOption, SurveyBlock, SurveyDocument } from '@/features/survey-schema/schema';
 
+type ChangeTone = 'add' | 'remove' | 'move' | 'update';
+
 function describeOperation(operation: ChangeOperation) {
   switch (operation.type) {
     case 'addBlock':
@@ -14,6 +16,21 @@ function describeOperation(operation: ChangeOperation) {
       return `${operation.type} · ${operation.blockId}`;
     case 'updateBlock':
       return `${operation.type} · ${operation.blockId}`;
+    default:
+      return operation satisfies never;
+  }
+}
+
+function getOperationTone(operation: ChangeOperation): ChangeTone {
+  switch (operation.type) {
+    case 'addBlock':
+      return 'add';
+    case 'removeBlock':
+      return 'remove';
+    case 'moveBlock':
+      return 'move';
+    case 'updateBlock':
+      return 'update';
     default:
       return operation satisfies never;
   }
@@ -165,7 +182,40 @@ type Props = {
   onDiscard: () => void;
 };
 
-function SuggestedCanvasPreview({ document }: { document: SurveyDocument }) {
+type ChangeHighlight = {
+  badge: string;
+  tone: ChangeTone;
+};
+
+function buildChangeHighlights(operations: ChangeOperation[]) {
+  const highlights = new Map<string, ChangeHighlight>();
+
+  operations.forEach((operation) => {
+    if (operation.type === 'removeBlock') {
+      return;
+    }
+
+    const blockId = operation.type === 'addBlock' ? operation.block.id : operation.blockId;
+    const tone = getOperationTone(operation);
+    const badge = operation.type === 'addBlock'
+      ? '新增'
+      : operation.type === 'updateBlock'
+        ? '修改'
+        : '排序';
+
+    highlights.set(blockId, { badge, tone });
+  });
+
+  return highlights;
+}
+
+function SuggestedCanvasPreview({
+  document,
+  highlights
+}: {
+  document: SurveyDocument;
+  highlights: Map<string, ChangeHighlight>;
+}) {
   if (!document.blocks.length) {
     return (
       <div className="ai-change-preview__empty">
@@ -178,9 +228,24 @@ function SuggestedCanvasPreview({ document }: { document: SurveyDocument }) {
     <div className="editor-canvas-list ai-change-preview__canvas-list">
       {document.blocks.map((block) => {
         const Renderer = blockRegistry[block.type];
+        const highlight = highlights.get(block.id);
 
         return (
-          <article className="editor-canvas-card ai-change-preview__canvas-card" key={block.id}>
+          <article
+            className={[
+              'editor-canvas-card ai-change-preview__canvas-card',
+              highlight ? 'ai-change-preview__canvas-card--changed' : ''
+            ].join(' ')}
+            data-block-id={block.id}
+            data-change-tone={highlight?.tone}
+            data-testid="ai-preview-block-card"
+            key={block.id}
+          >
+            {highlight ? (
+              <span className="ai-change-preview__block-badge">
+                {highlight.badge}
+              </span>
+            ) : null}
             <Renderer block={block} mode="editor-preview" />
           </article>
         );
@@ -190,6 +255,8 @@ function SuggestedCanvasPreview({ document }: { document: SurveyDocument }) {
 }
 
 export function AiChangePreview({ changeSet, currentDocument, onApply, onDiscard }: Props) {
+  const changeHighlights = buildChangeHighlights(changeSet.operations);
+
   return (
     <section className="ai-change-preview">
       <div className="ai-change-preview__header">
@@ -211,7 +278,9 @@ export function AiChangePreview({ changeSet, currentDocument, onApply, onDiscard
           return (
             <article
               key={`${operation.type}-${index}`}
-              className="ui-panel p-3 flex flex-col gap-2"
+              className="ai-change-preview__operation ui-panel p-3 flex flex-col gap-2"
+              data-change-tone={getOperationTone(operation)}
+              data-testid="ai-change-operation"
             >
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="ui-chip">{presentation.badge}</span>
@@ -233,11 +302,11 @@ export function AiChangePreview({ changeSet, currentDocument, onApply, onDiscard
       <div className="flex flex-col gap-3">
         <strong className="text-[14px] text-[#0f172a]">建议后的问卷</strong>
         <div
-          className="editor-preview-frame ai-change-preview__frame"
+          className="editor-preview-frame ai-change-preview__frame ai-change-preview__frame--full-width"
           data-preview-mode="desktop"
           data-testid="ai-preview-frame"
         >
-          <SuggestedCanvasPreview document={changeSet.nextDocument} />
+          <SuggestedCanvasPreview document={changeSet.nextDocument} highlights={changeHighlights} />
         </div>
       </div>
       <div className="ai-change-preview__actions">

@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { AiChangePreview } from '@/components/editor/AiChangePreview';
 
@@ -82,14 +82,26 @@ describe('AiChangePreview', () => {
     );
 
     expect(screen.getByText('变更明细')).toBeInTheDocument();
-    expect(screen.getByText('修改')).toBeInTheDocument();
-    expect(screen.getByText('新增')).toBeInTheDocument();
+    expect(screen.getAllByText('修改').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('新增').length).toBeGreaterThan(0);
     expect(screen.getByText('题目标题：原始标题 → 活动报名表')).toBeInTheDocument();
     expect(screen.getByText('填写框 · 手机号')).toBeInTheDocument();
     expect(screen.getByText('建议后的问卷')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '活动报名表' })).toBeInTheDocument();
-    expect(screen.getByTestId('ai-preview-frame')).toHaveClass('editor-preview-frame');
+    expect(screen.getByTestId('ai-preview-frame')).toHaveClass('editor-preview-frame', 'ai-change-preview__frame--full-width');
     expect(screen.getByPlaceholderText('请输入手机号')).toHaveAttribute('readonly');
+
+    const operationCards = screen.getAllByTestId('ai-change-operation');
+    expect(operationCards[0]).toHaveAttribute('data-change-tone', 'update');
+    expect(operationCards[1]).toHaveAttribute('data-change-tone', 'add');
+
+    const previewCards = screen.getAllByTestId('ai-preview-block-card');
+    expect(previewCards[0]).toHaveAttribute('data-block-id', 'title-1');
+    expect(previewCards[0]).toHaveAttribute('data-change-tone', 'update');
+    expect(within(previewCards[0]).getByText('修改')).toBeInTheDocument();
+    expect(previewCards[1]).toHaveAttribute('data-block-id', 'input-1');
+    expect(previewCards[1]).toHaveAttribute('data-change-tone', 'add');
+    expect(within(previewCards[1]).getByText('新增')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '应用修改' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '放弃修改' })).toBeInTheDocument();
   });
