@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { aiDraftChangeSetSchema } from '@/features/ai-assistant/types';
 import { AiChangePreview } from './AiChangePreview';
 import { useEditorStore } from './editor-store-context';
@@ -76,7 +76,22 @@ function GlobalSurveySettings({ readOnly = false }: { readOnly?: boolean }) {
   );
 }
 
-export function AiAssistantPanel({ readOnly = false }: { readOnly?: boolean }) {
+const AI_GENERATION_ERROR_MESSAGE = 'AI 暂时没能生成修改建议，请稍后重试或换个说法。';
+const AI_GENERATION_ABORTED_MESSAGE = '已中断生成，当前问卷没有变化。';
+
+function isAbortError(error: unknown) {
+  return error instanceof DOMException && error.name === 'AbortError';
+}
+
+export function AiAssistantPanel({
+  readOnly = false,
+  isGenerating = false,
+  onGenerationStateChange
+}: {
+  readOnly?: boolean;
+  isGenerating?: boolean;
+  onGenerationStateChange?: (isGenerating: boolean) => void;
+}) {
   const survey = useEditorStore((state) => state.survey);
   const pendingChangeSet = useEditorStore((state) => state.pendingChangeSet);
   const setPendingChangeSet = useEditorStore((state) => state.setPendingChangeSet);
@@ -85,13 +100,24 @@ export function AiAssistantPanel({ readOnly = false }: { readOnly?: boolean }) {
   const [prompt, setPrompt] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const interactionDisabled = readOnly || isLoading || isGenerating;
+
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort();
+    };
+  }, []);
 
   async function requestChanges(nextPrompt = prompt) {
-    if (readOnly) {
+    if (readOnly || isLoading || isGenerating) {
       return;
     }
 
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
     setIsLoading(true);
+    onGenerationStateChange?.(true);
     setError(null);
 
     try {
@@ -100,7 +126,8 @@ export function AiAssistantPanel({ readOnly = false }: { readOnly?: boolean }) {
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ prompt: nextPrompt, currentDocument: survey })
+        body: JSON.stringify({ prompt: nextPrompt, currentDocument: survey }),
+        signal: abortController.signal
       });
 
       if (!response.ok) {
@@ -110,10 +137,18 @@ export function AiAssistantPanel({ readOnly = false }: { readOnly?: boolean }) {
       const payload = aiDraftChangeSetSchema.parse(await response.json());
       setPendingChangeSet(payload);
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : '未知错误');
+      setError(isAbortError(requestError) ? AI_GENERATION_ABORTED_MESSAGE : AI_GENERATION_ERROR_MESSAGE);
     } finally {
+      if (abortControllerRef.current === abortController) {
+        abortControllerRef.current = null;
+      }
       setIsLoading(false);
+      onGenerationStateChange?.(false);
     }
+  }
+
+  function cancelGeneration() {
+    abortControllerRef.current?.abort();
   }
 
   return (
@@ -134,7 +169,7 @@ export function AiAssistantPanel({ readOnly = false }: { readOnly?: boolean }) {
         </div>
       ) : null}
 
-      <GlobalSurveySettings readOnly={readOnly} />
+      <GlobalSurveySettings readOnly={readOnly || isLoading || isGenerating} />
 
       <div className="ui-panel-soft p-4">
         <div className="space-y-1">
@@ -145,7 +180,7 @@ export function AiAssistantPanel({ readOnly = false }: { readOnly?: boolean }) {
           {QUICK_PROMPTS.map((item) => (
             <button
               className="ui-btn ui-btn-secondary"
-              disabled={readOnly}
+              disabled={interactionDisabled}
               key={item.label}
               onClick={() => setPrompt(item.prompt)}
               type="button"
@@ -157,7 +192,7 @@ export function AiAssistantPanel({ readOnly = false }: { readOnly?: boolean }) {
         <div className="mt-3">
           <button
             className="ui-btn ui-btn-primary"
-            disabled={!prompt.trim() || isLoading || readOnly}
+            disabled={!prompt.trim() || interactionDisabled}
             onClick={() => requestChanges()}
             type="button"
           >
@@ -166,12 +201,13 @@ export function AiAssistantPanel({ readOnly = false }: { readOnly?: boolean }) {
         </div>
       </div>
 
+
       <label className="ui-field">
         <span className="ui-field-label">AI 指令</span>
         <textarea
           aria-label="AI prompt"
           className="ui-textarea"
-          disabled={readOnly}
+          disabled={interactionDisabled}
           onChange={(event) => setPrompt(event.target.value)}
           placeholder="例如：生成一个用户满意度问卷，先给我一个标题、姓名填写、满意度单选和改进方向多选。"
           rows={8}
@@ -185,7 +221,7 @@ export function AiAssistantPanel({ readOnly = false }: { readOnly?: boolean }) {
           'ui-btn ui-btn-primary w-full ai-generate-button',
           isLoading ? 'ai-generate-button--loading' : ''
         ].join(' ')}
-        disabled={!prompt.trim() || isLoading || readOnly}
+        disabled={!prompt.trim() || interactionDisabled}
         onClick={() => requestChanges()}
         type="button"
       >
@@ -194,6 +230,18 @@ export function AiAssistantPanel({ readOnly = false }: { readOnly?: boolean }) {
           {isLoading ? '生成中...' : '生成修改建议'}
         </span>
       </button>
+
+      {isLoading || isGenerating ? (
+        <div className="ai-generation-hint" role="status">
+          <div className="space-y-1">
+            <p className="m-0 text-xs leading-5 text-[#475569]">这一步不会直接修改问卷，生成后会先给你预览。</p>
+            <p className="m-0 text-xs leading-5 text-[#64748b]">如果觉得等太久，可以中断后换个说法再试。</p>
+          </div>
+          <button className="ui-btn ui-btn-secondary w-full" onClick={cancelGeneration} type="button">
+            中断生成
+          </button>
+        </div>
+      ) : null}
 
       {error ? <p className="m-0 text-sm text-[#b42318]">{error}</p> : null}
       {pendingChangeSet ? (

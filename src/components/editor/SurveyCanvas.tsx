@@ -93,7 +93,11 @@ function SortableCanvasBlockCard({
         isSelected ? 'editor-canvas-card--selected' : ''
       ].join(' ')}
       data-testid="canvas-block-card"
-      onClick={() => onSelect(block.id)}
+      onClick={() => {
+        if (!readOnly) {
+          onSelect(block.id);
+        }
+      }}
       ref={setCanvasNode}
       style={{
         cursor: isDragging ? 'grabbing' : 'pointer',
@@ -260,7 +264,11 @@ export function SurveyCanvas({ readOnly = false }: { readOnly?: boolean }) {
   }, [selectedBlockId, survey.blocks.length]);
 
   return (
-    <main className="editor-canvas-stage" onClick={() => selectBlock('')}>
+    <main className="editor-canvas-stage" onClick={() => {
+      if (!readOnly) {
+        selectBlock('');
+      }
+    }}>
       <div
         className="editor-preview-frame"
         data-preview-mode={previewMode}

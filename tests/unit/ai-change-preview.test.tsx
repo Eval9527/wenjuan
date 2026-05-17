@@ -86,6 +86,10 @@ describe('AiChangePreview', () => {
     expect(screen.getAllByText('新增').length).toBeGreaterThan(0);
     expect(screen.getByText('题目标题：原始标题 → 活动报名表')).toBeInTheDocument();
     expect(screen.getByText('填写框 · 手机号')).toBeInTheDocument();
+    expect(screen.queryByText('updateBlock · title-1')).not.toBeInTheDocument();
+    expect(screen.queryByText('addBlock · input')).not.toBeInTheDocument();
+    expect(screen.queryByText(/removeBlock ·/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/block-[0-9a-f-]{8,}/)).not.toBeInTheDocument();
     expect(screen.getByText('建议后的问卷')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '活动报名表' })).toBeInTheDocument();
     expect(screen.getByTestId('ai-preview-frame')).toHaveClass('editor-preview-frame', 'ai-change-preview__frame--full-width');

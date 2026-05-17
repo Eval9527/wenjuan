@@ -139,7 +139,7 @@ function SortableOutlineItem({
           <span />
         </span>
       </button>
-      <button className="editor-outline-main" onClick={() => onSelect(block.id)} type="button">
+      <button className="editor-outline-main" disabled={readOnly} onClick={() => onSelect(block.id)} type="button">
         <span className="w-5 text-xs text-[#94a3b8] shrink-0">{index + 1}.</span>
         <span className="flex-1 text-left truncate">{displayLabel}</span>
         <span className="text-[11px] bg-white border border-[#e2e8f0] px-1.5 py-0.5 rounded text-[#64748b] shrink-0">

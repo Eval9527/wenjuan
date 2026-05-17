@@ -6,21 +6,6 @@ import type { ChoiceOption, SurveyBlock, SurveyDocument } from '@/features/surve
 
 type ChangeTone = 'add' | 'remove' | 'move' | 'update';
 
-function describeOperation(operation: ChangeOperation) {
-  switch (operation.type) {
-    case 'addBlock':
-      return `${operation.type} · ${operation.block.type}`;
-    case 'removeBlock':
-      return `${operation.type} · ${operation.blockId}`;
-    case 'moveBlock':
-      return `${operation.type} · ${operation.blockId}`;
-    case 'updateBlock':
-      return `${operation.type} · ${operation.blockId}`;
-    default:
-      return operation satisfies never;
-  }
-}
-
 function getOperationTone(operation: ChangeOperation): ChangeTone {
   switch (operation.type) {
     case 'addBlock':
@@ -286,7 +271,6 @@ export function AiChangePreview({ changeSet, currentDocument, onApply, onDiscard
                 <span className="ui-chip">{presentation.badge}</span>
                 <strong className="text-[13px] text-[#1e293b]">{presentation.title}</strong>
               </div>
-              <code className="text-[12px] text-[#475569]">{describeOperation(operation)}</code>
               {presentation.details.length ? (
                 <ul className="m-0 pl-5 text-[13px] text-[#475569]">
                   {presentation.details.map((detail) => (

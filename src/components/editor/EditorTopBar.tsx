@@ -48,12 +48,14 @@ export function EditorTopBar({
   surveyId,
   persistenceState,
   publishState,
-  onPublish
+  onPublish,
+  interactionLocked = false
 }: {
   surveyId: string;
   persistenceState?: EditorPersistenceState;
   publishState?: EditorPublishState;
   onPublish?: () => void;
+  interactionLocked?: boolean;
 }) {
   const surveyTitle = useEditorStore((state) => state.survey.title);
   const blocks = useEditorStore((state) => state.survey.blocks);
@@ -70,6 +72,7 @@ export function EditorTopBar({
   const [draftTitle, setDraftTitle] = useState(surveyTitle);
   const [isComposingTitle, setIsComposingTitle] = useState(false);
   const isLocked = Boolean(publishState?.publishedVersion);
+  const isEditingDisabled = isLocked || interactionLocked;
   const shouldConfirmLeave = !isLocked && (persistenceState?.status === 'saving' || persistenceState?.status === 'error');
   const selectedIndex = useMemo(
     () => blocks.findIndex((block) => block.id === selectedBlockId),
@@ -98,7 +101,7 @@ export function EditorTopBar({
   }, [isComposingTitle, surveyTitle]);
 
   function commitTitle(nextTitle: string) {
-    if (nextTitle.trim() && nextTitle !== surveyTitle) {
+    if (!isEditingDisabled && nextTitle.trim() && nextTitle !== surveyTitle) {
       updateSurveyTitle(nextTitle);
     }
   }
@@ -142,7 +145,7 @@ export function EditorTopBar({
         <input
           aria-label="问卷标题"
           className="editor-title-input"
-          disabled={isLocked}
+          disabled={isEditingDisabled}
           onBlur={(event) => commitTitle(event.target.value)}
           onChange={(event) => {
             setDraftTitle(event.target.value);
@@ -176,22 +179,23 @@ export function EditorTopBar({
           {copyMessage && <span className="text-xs text-[#2563eb]">{copyMessage}</span>}
         </div>
         {isLocked ? <span className="sr-only">当前问卷已发布，编辑已锁定</span> : null}
+        {interactionLocked ? <span className="sr-only">AI 生成中，编辑暂时锁定</span> : null}
       </div>
 
       <div className="editor-toolbar-cluster shrink-0 hidden lg:flex items-center gap-1">
-        <ToolbarButton ariaLabel="撤销" disabled={!canUndo || isLocked} title="撤销" onClick={undo} icon={<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>} />
-        <ToolbarButton ariaLabel="重做" disabled={!canRedo || isLocked} title="重做" onClick={redo} icon={<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"/></svg>} />
+        <ToolbarButton ariaLabel="撤销" disabled={!canUndo || isEditingDisabled} title="撤销" onClick={undo} icon={<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>} />
+        <ToolbarButton ariaLabel="重做" disabled={!canRedo || isEditingDisabled} title="重做" onClick={redo} icon={<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"/></svg>} />
         <div className="w-px h-4 bg-[#cbd5e1] mx-1 opacity-60" />
-        <ToolbarButton ariaLabel="复制当前题目" disabled={!selectedBlock || isLocked} title="复制" onClick={() => selectedBlock && duplicateBlock(selectedBlock.id)} icon={<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>} />
+        <ToolbarButton ariaLabel="复制当前题目" disabled={!selectedBlock || isEditingDisabled} title="复制" onClick={() => selectedBlock && duplicateBlock(selectedBlock.id)} icon={<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>} />
         <div className="w-px h-4 bg-[#cbd5e1] mx-1 opacity-60" />
-        <ToolbarButton ariaLabel="上移当前题目" disabled={!selectedBlock || selectedIndex === 0 || isLocked} title="上移" onClick={() => selectedBlock && moveBlock(selectedBlock.id, moveUpTargetId)} icon={<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m18 15-6-6-6 6"/></svg>} />
-        <ToolbarButton ariaLabel="下移当前题目" disabled={!selectedBlock || selectedIndex === -1 || selectedIndex === blocks.length - 1 || isLocked} title="下移" onClick={() => selectedBlock && moveBlock(selectedBlock.id, moveDownTargetId)} icon={<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>} />
+        <ToolbarButton ariaLabel="上移当前题目" disabled={!selectedBlock || selectedIndex === 0 || isEditingDisabled} title="上移" onClick={() => selectedBlock && moveBlock(selectedBlock.id, moveUpTargetId)} icon={<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m18 15-6-6-6 6"/></svg>} />
+        <ToolbarButton ariaLabel="下移当前题目" disabled={!selectedBlock || selectedIndex === -1 || selectedIndex === blocks.length - 1 || isEditingDisabled} title="下移" onClick={() => selectedBlock && moveBlock(selectedBlock.id, moveDownTargetId)} icon={<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>} />
         <div className="w-px h-4 bg-[#cbd5e1] mx-1 opacity-60" />
-        <ToolbarButton ariaLabel="删除当前题目" className="text-[#b42318] hover:bg-[#fef2f2]" disabled={!selectedBlock || isLocked} title="删除" onClick={() => selectedBlock && removeBlock(selectedBlock.id)} icon={<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>} />
+        <ToolbarButton ariaLabel="删除当前题目" className="text-[#b42318] hover:bg-[#fef2f2]" disabled={!selectedBlock || isEditingDisabled} title="删除" onClick={() => selectedBlock && removeBlock(selectedBlock.id)} icon={<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>} />
       </div>
 
       <div className="flex flex-1 items-center justify-end gap-3 shrink-0">
-        <PreviewModeSwitch />
+        <PreviewModeSwitch disabled={interactionLocked} />
         {publishState?.publishedVersion ? (
           <button aria-label="复制分享链接" className="ui-btn ui-btn-secondary" onClick={handleCopyShareLink} type="button">
             复制链接
@@ -200,7 +204,7 @@ export function EditorTopBar({
         <button
           aria-label="发布问卷"
           className="ui-btn ui-btn-primary"
-          disabled={!onPublish || publishState?.status === 'publishing' || isLocked}
+          disabled={!onPublish || publishState?.status === 'publishing' || isEditingDisabled}
           onClick={onPublish}
           type="button"
         >

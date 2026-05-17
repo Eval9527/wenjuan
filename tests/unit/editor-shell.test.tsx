@@ -16,6 +16,66 @@ function mockScrollIntoView() {
   return scrollIntoView;
 }
 
+
+function createAiPreviewPayload() {
+  return {
+    id: 'change-pending',
+    basedOnVersion: 1,
+    userIntent: '生成一个活动报名问卷',
+    summary: '新增 1 个题目',
+    operations: [
+      {
+        type: 'addBlock',
+        block: {
+          id: 'b-ai',
+          type: 'input',
+          label: '姓名',
+          placeholder: '请输入姓名'
+        }
+      }
+    ],
+    nextDocument: {
+      id: 'demo',
+      title: '活动报名问卷',
+      blocks: [
+        {
+          id: 'b-ai',
+          type: 'input',
+          label: '姓名',
+          placeholder: '请输入姓名'
+        }
+      ],
+      settings: { submitLabel: '提交' },
+      meta: {
+        version: 2,
+        createdAt: '2026-04-13T00:00:00.000Z',
+        updatedAt: '2026-04-13T00:00:00.000Z'
+      }
+    }
+  };
+}
+
+function createEditorSurveyWithOneBlock() {
+  return {
+    id: 'demo',
+    title: '活动报名问卷',
+    blocks: [
+      {
+        id: 'input-1',
+        type: 'input' as const,
+        label: '姓名',
+        placeholder: '请输入姓名'
+      }
+    ],
+    settings: { submitLabel: '提交' },
+    meta: {
+      version: 1,
+      createdAt: '2026-04-13T00:00:00.000Z',
+      updatedAt: '2026-04-13T00:00:00.000Z'
+    }
+  };
+}
+
 function createDataTransfer() {
   const store = new Map<string, string>();
 
@@ -454,6 +514,50 @@ describe('EditorShell', () => {
     expect(screen.getByText('分享链接已复制')).toBeInTheDocument();
   });
 
+
+  it('locks the editor surface while ai generation is pending and shows compact reassurance under the generate button', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(() => new Promise(() => undefined) as Promise<Response>);
+
+    render(<EditorShell surveyId="demo" initialSurvey={createEditorSurveyWithOneBlock()} />);
+
+    fireEvent.change(screen.getByLabelText('AI prompt'), {
+      target: { value: '生成一个活动报名问卷' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: '生成修改建议' }));
+
+    expect(await screen.findByRole('button', { name: '生成中' })).toBeDisabled();
+    expect(screen.queryByText('AI 正在生成修改建议')).not.toBeInTheDocument();
+    expect(screen.getByText('这一步不会直接修改问卷，生成后会先给你预览。')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '标题' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '拖拽排序 姓名' })).toBeDisabled();
+    expect(screen.getByLabelText('问卷标题')).toBeDisabled();
+    expect(screen.getByRole('button', { name: '发布问卷' })).toBeDisabled();
+    const hint = screen.getByText('这一步不会直接修改问卷，生成后会先给你预览。').closest('[role="status"]');
+    expect(hint).toHaveClass('ai-generation-hint');
+    expect(within(hint as HTMLElement).getByRole('button', { name: '中断生成' })).toHaveClass('w-full');
+  });
+
+  it('can interrupt an in-flight ai generation request without applying changes', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation((_, init) => new Promise<Response>((resolve, reject) => {
+      const signal = (init as RequestInit | undefined)?.signal;
+      signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')));
+      void resolve;
+    }));
+
+    render(<EditorShell surveyId="demo" initialSurvey={createEditorSurveyWithOneBlock()} />);
+
+    fireEvent.change(screen.getByLabelText('AI prompt'), {
+      target: { value: '生成一个活动报名问卷' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: '生成修改建议' }));
+
+    fireEvent.click(await screen.findByRole('button', { name: '中断生成' }));
+
+    expect(await screen.findByText('已中断生成，当前问卷没有变化。')).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('问卷标题')).not.toBeDisabled();
+  });
+
   it('supports quick ai prompts for demo flow', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,
@@ -493,6 +597,24 @@ describe('EditorShell', () => {
         })
       );
     });
+  });
+
+  it('shows the local ai server error from the changes endpoint', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: false,
+      status: 502,
+      json: async () => ({ error: '本地 AI 调用失败：本地 AI 没有返回 JSON 对象' })
+    } as Response);
+
+    render(<EditorShell surveyId="demo" />);
+
+    fireEvent.change(screen.getByLabelText('AI prompt'), {
+      target: { value: '生成一个满意度问卷' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: '生成修改建议' }));
+
+    expect(await screen.findByText('AI 暂时没能生成修改建议，请稍后重试或换个说法。')).toBeInTheDocument();
+    expect(screen.queryByText(/本地 AI/)).not.toBeInTheDocument();
   });
 
   it('shows ai preview before apply and then updates the canvas', async () => {
@@ -564,8 +686,10 @@ describe('EditorShell', () => {
     fireEvent.click(screen.getByRole('button', { name: '生成修改建议' }));
 
     expect(await screen.findByText('新增 2 个题目')).toBeInTheDocument();
-    expect(screen.getByText('addBlock · title')).toBeInTheDocument();
-    expect(screen.getByText('addBlock · singleChoice')).toBeInTheDocument();
+    expect(screen.getByText('标题 · 满意度调查')).toBeInTheDocument();
+    expect(screen.getByText('单选 · 你对产品满意吗？')).toBeInTheDocument();
+    expect(screen.queryByText('addBlock · title')).not.toBeInTheDocument();
+    expect(screen.queryByText('addBlock · singleChoice')).not.toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
     fireEvent.click(screen.getByRole('button', { name: '应用修改' }));

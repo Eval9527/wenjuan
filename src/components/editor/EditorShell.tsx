@@ -18,12 +18,14 @@ function SideTab({
   active,
   children,
   tone = 'default',
-  onClick
+  onClick,
+  disabled = false
 }: {
   active: boolean;
   children: React.ReactNode;
   tone?: 'default' | 'primary';
   onClick: () => void;
+  disabled?: boolean;
 }) {
   return (
     <button
@@ -32,6 +34,7 @@ function SideTab({
         'editor-side-tab',
         active ? (tone === 'primary' ? 'editor-side-tab--active editor-side-tab--primary' : 'editor-side-tab--active') : ''
       ].join(' ')}
+      disabled={disabled}
       onClick={onClick}
       role="tab"
       type="button"
@@ -59,7 +62,9 @@ export function EditorShell({
 }) {
   const storeRef = useRef<ReturnType<typeof createEditorStore> | null>(null);
   const [activeTab, setActiveTab] = useState<'ai' | 'inspector'>('ai');
+  const [isAiGenerating, setIsAiGenerating] = useState(false);
   const isLocked = Boolean(publishState?.publishedVersion);
+  const isEditorInteractionLocked = isLocked || isAiGenerating;
 
   if (!storeRef.current) {
     storeRef.current = createEditorStore({
@@ -79,11 +84,23 @@ export function EditorShell({
 
   const activePanel = useMemo(() => {
     if (activeTab === 'ai') {
-      return <AiAssistantPanel readOnly={isLocked} />;
+      return (
+        <AiAssistantPanel
+          isGenerating={isAiGenerating}
+          onGenerationStateChange={setIsAiGenerating}
+          readOnly={isLocked}
+        />
+      );
     }
 
-    return <InspectorPanel readOnly={isLocked} />;
-  }, [activeTab, isLocked]);
+    return <InspectorPanel readOnly={isEditorInteractionLocked} />;
+  }, [activeTab, isAiGenerating, isEditorInteractionLocked, isLocked]);
+
+  useEffect(() => {
+    if (isAiGenerating) {
+      setActiveTab('ai');
+    }
+  }, [isAiGenerating]);
 
   useEffect(() => {
     if (!onSurveyChange || !storeRef.current) {
@@ -104,15 +121,16 @@ export function EditorShell({
           onPublish={onPublish}
           persistenceState={persistenceState}
           publishState={publishState}
+          interactionLocked={isAiGenerating}
           surveyId={surveyId}
         />
         <div className="editor-main-area">
-          <BlockPalette readOnly={isLocked} />
-          <SurveyCanvas readOnly={isLocked} />
+          <BlockPalette readOnly={isEditorInteractionLocked} />
+          <SurveyCanvas readOnly={isEditorInteractionLocked} />
           <aside className="editor-side-panel editor-side-panel--right">
             <div aria-label="面板切换" className="editor-side-tabs" role="tablist">
               <SideTab active={activeTab === 'ai'} onClick={() => setActiveTab('ai')} tone="primary">AI 助手</SideTab>
-              <SideTab active={activeTab === 'inspector'} onClick={() => setActiveTab('inspector')}>组件属性</SideTab>
+              <SideTab active={activeTab === 'inspector'} disabled={isAiGenerating} onClick={() => setActiveTab('inspector')}>组件属性</SideTab>
             </div>
             <div className="editor-side-scroll flex-1 p-4">
               {activePanel}
