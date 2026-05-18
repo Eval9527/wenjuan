@@ -69,4 +69,21 @@ describe('buildMockChangeSet', () => {
       label: '活动报名表'
     });
   });
+
+  it('centers generated title blocks in the deterministic demo generator', () => {
+    const changeSet = buildMockChangeSet('生成一个满意度问卷', createBaseDocument());
+
+    expect(changeSet.nextDocument.blocks[0]).toMatchObject({
+      type: 'title',
+      label: '满意度调查',
+      align: 'center'
+    });
+    expect(changeSet.operations[0]).toMatchObject({
+      type: 'addBlock',
+      block: {
+        type: 'title',
+        align: 'center'
+      }
+    });
+  });
 });

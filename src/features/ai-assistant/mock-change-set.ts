@@ -32,7 +32,8 @@ function buildGeneratedSurvey(prompt: string, currentDocument: SurveyDocument) {
         id: createId('block'),
         type: 'title',
         label: title,
-        level: 1
+        level: 1,
+        align: 'center'
       },
       {
         id: createId('block'),

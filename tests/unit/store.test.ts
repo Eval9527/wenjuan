@@ -11,6 +11,10 @@ describe('editor store', () => {
     const [firstBlock, secondBlock] = store.getState().survey.blocks;
 
     expect(firstBlock.type).toBe('title');
+    expect(firstBlock).toMatchObject({
+      type: 'title',
+      align: 'center'
+    });
     expect(secondBlock.type).toBe('input');
 
     store.getState().moveBlock(secondBlock.id, firstBlock.id);

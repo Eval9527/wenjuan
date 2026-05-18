@@ -133,7 +133,7 @@ function buildSystemPrompt() {
     'JSON 结构必须是：',
     '{"summary":"一句中文总结","title":"问卷标题","description":"可选问卷说明","submitLabel":"提交按钮文案","blocks":[...]}',
     'blocks 只允许以下 type：title、paragraph、input、singleChoice、multiChoice。',
-    'title 使用 label 和 level(1/2/3)，paragraph 使用 content，input 使用 label/placeholder/required，选择题使用 label/options。',
+    'title 使用 label 和 level(1/2/3)，默认 align 为 center；paragraph 使用 content，input 使用 label/placeholder/required，选择题使用 label/options。',
     'options 可以是字符串数组，也可以是 {"text":"选项文案"} 数组。',
     '如果修改已有题目，尽量保留已有题目的 id 或放在 existingId 中；新增题目可以不写 id。',
     '不要直接删除问卷 id、settings 或 meta；系统会在服务端补齐这些字段。',
@@ -354,7 +354,7 @@ function normalizeBlock(draft: BlockDraft, currentBlocksById: Map<string, Survey
         type: 'title' as const,
         label: nonEmptyString(draft.label ?? draft.content, previousBlock?.type === 'title' ? previousBlock.label : '新标题'),
         level: normalizeLevel(draft.level ?? (previousBlock?.type === 'title' ? previousBlock.level : undefined)),
-        ...(align ? { align } : {})
+        align: align ?? 'center'
       };
     case 'paragraph':
       return {

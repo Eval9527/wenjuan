@@ -130,7 +130,7 @@ describe('EditorShell', () => {
     render(<EditorShell surveyId="demo" />);
 
     fireEvent.click(screen.getByRole('button', { name: '标题' }));
-    expect(screen.getByRole('heading', { name: '新标题' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '新标题' })).toHaveAttribute('data-align', 'center');
 
     fireEvent.click(screen.getByRole('button', { name: '段落' }));
     expect(screen.getAllByText('这是一段说明文字').length).toBeGreaterThan(0);

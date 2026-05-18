@@ -42,7 +42,7 @@ export function createBlock(type: SurveyBlockType): SurveyBlock {
         type: 'title',
         label: '新标题',
         level: 1,
-        align: 'left'
+        align: 'center'
       };
     case 'paragraph':
       return {

@@ -100,6 +100,11 @@ describe('POST /api/ai/changes', () => {
       meta: { version: 2 }
     });
     expect(payload.nextDocument.blocks).toHaveLength(3);
+    expect(payload.nextDocument.blocks[0]).toMatchObject({
+      type: 'title',
+      label: '活动报名表',
+      align: 'center'
+    });
     expect(payload.nextDocument.blocks[1]).toMatchObject({
       type: 'input',
       label: '姓名',
@@ -148,7 +153,8 @@ describe('POST /api/ai/changes', () => {
     expect(payload.nextDocument.blocks[0]).toMatchObject({
       type: 'title',
       label: '线索收集表',
-      level: 1
+      level: 1,
+      align: 'center'
     });
     expect(payload.nextDocument.blocks[1]).toMatchObject({
       type: 'input',
