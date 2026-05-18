@@ -4,10 +4,14 @@ import { PublishedSurveyPage } from '@/components/published/PublishedSurveyPage'
 
 describe('PublishedSurveyPage', () => {
   afterEach(() => {
+    document.cookie = 'wenjuan_submitted_demo=; Max-Age=0; Path=/f/demo';
+    window.history.pushState({}, '', '/');
     vi.restoreAllMocks();
   });
 
   it('renders survey content and submits with Chinese actions', async () => {
+    window.history.pushState({}, '', '/f/demo');
+
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(
         JSON.stringify({
@@ -55,6 +59,8 @@ describe('PublishedSurveyPage', () => {
     expect(screen.queryByRole('link', { name: '返回工作台' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: '返回编辑器' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: '提交问卷' })).toHaveClass('ui-btn', 'ui-btn-primary');
+    expect(screen.getByTestId('published-survey-form')).toHaveClass('published-survey-form');
+    expect(screen.getByTestId('published-survey-form')).toHaveStyle({ gap: '16px' });
 
     fireEvent.change(screen.getByLabelText('手机号'), {
       target: { value: '13800138000' }
@@ -67,10 +73,8 @@ describe('PublishedSurveyPage', () => {
     expect(screen.getByText('您的答卷已成功记录。')).toBeInTheDocument();
     expect(within(successSection as HTMLElement).queryByRole('link', { name: '返回工作台' })).not.toBeInTheDocument();
     expect(within(successSection as HTMLElement).queryByRole('link', { name: '返回编辑器' })).not.toBeInTheDocument();
-    expect(within(successSection as HTMLElement).getByRole('button', { name: '再填写一份' })).toHaveClass(
-      'ui-btn',
-      'ui-btn-primary'
-    );
+    expect(within(successSection as HTMLElement).queryByRole('button', { name: '再填写一份' })).not.toBeInTheDocument();
+    expect(document.cookie).toContain('wenjuan_submitted_demo=1');
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/surveys/demo/responses',

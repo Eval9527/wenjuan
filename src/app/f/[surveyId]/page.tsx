@@ -1,5 +1,7 @@
+import { cookies } from 'next/headers';
 import { PublishedSurveyPage } from '@/components/published/PublishedSurveyPage';
 import { getPublishedSurvey } from '@/features/persistence/repository';
+import { getSurveySubmissionCookieName, getSurveySubmissionCookieValue } from '@/features/responses/submission-cookie';
 
 export default async function FillSurveyPage({
   params
@@ -28,5 +30,9 @@ export default async function FillSurveyPage({
     );
   }
 
-  return <PublishedSurveyPage document={publishedSurvey.document} surveyId={surveyId} />;
+  const cookieStore = await cookies();
+  const initialSubmitted =
+    cookieStore.get(getSurveySubmissionCookieName(surveyId))?.value === getSurveySubmissionCookieValue();
+
+  return <PublishedSurveyPage document={publishedSurvey.document} initialSubmitted={initialSubmitted} surveyId={surveyId} />;
 }

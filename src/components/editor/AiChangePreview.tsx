@@ -251,49 +251,53 @@ export function AiChangePreview({ changeSet, currentDocument, onApply, onDiscard
         <div className="text-[13px] text-[#64748b]">建议操作数：{changeSet.operations.length}</div>
       </div>
 
-      <div className="flex flex-col gap-3">
-        <strong className="text-[14px] text-[#0f172a]">变更明细</strong>
-        {changeSet.operations.map((operation, index) => {
-          const presentation = getOperationPresentation({
-            operation,
-            currentDocument,
-            nextDocument: changeSet.nextDocument
-          });
+      <div className="ai-change-preview__body" data-testid="ai-change-preview-body">
+        <div className="ai-change-preview__details" data-testid="ai-change-preview-details">
+          <strong className="text-[14px] text-[#0f172a]">变更明细</strong>
+          <div className="ai-change-preview__operation-list" data-testid="ai-change-operation-list">
+            {changeSet.operations.map((operation, index) => {
+              const presentation = getOperationPresentation({
+                operation,
+                currentDocument,
+                nextDocument: changeSet.nextDocument
+              });
 
-          return (
-            <article
-              key={`${operation.type}-${index}`}
-              className="ai-change-preview__operation ui-panel p-3 flex flex-col gap-2"
-              data-change-tone={getOperationTone(operation)}
-              data-testid="ai-change-operation"
-            >
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="ui-chip">{presentation.badge}</span>
-                <strong className="text-[13px] text-[#1e293b]">{presentation.title}</strong>
-              </div>
-              {presentation.details.length ? (
-                <ul className="m-0 pl-5 text-[13px] text-[#475569]">
-                  {presentation.details.map((detail) => (
-                    <li key={detail}>{detail}</li>
-                  ))}
-                </ul>
-              ) : null}
-            </article>
-          );
-        })}
-      </div>
+              return (
+                <article
+                  key={`${operation.type}-${index}`}
+                  className="ai-change-preview__operation ui-panel p-3 flex flex-col gap-2"
+                  data-change-tone={getOperationTone(operation)}
+                  data-testid="ai-change-operation"
+                >
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="ui-chip">{presentation.badge}</span>
+                    <strong className="text-[13px] text-[#1e293b]">{presentation.title}</strong>
+                  </div>
+                  {presentation.details.length ? (
+                    <ul className="m-0 pl-5 text-[13px] text-[#475569]">
+                      {presentation.details.map((detail) => (
+                        <li key={detail}>{detail}</li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </article>
+              );
+            })}
+          </div>
+        </div>
 
-      <div className="flex flex-col gap-3">
-        <strong className="text-[14px] text-[#0f172a]">建议后的问卷</strong>
-        <div
-          className="editor-preview-frame ai-change-preview__frame ai-change-preview__frame--full-width"
-          data-preview-mode="desktop"
-          data-testid="ai-preview-frame"
-        >
-          <SuggestedCanvasPreview document={changeSet.nextDocument} highlights={changeHighlights} />
+        <div className="ai-change-preview__suggested">
+          <strong className="text-[14px] text-[#0f172a]">建议后的问卷</strong>
+          <div
+            className="editor-preview-frame ai-change-preview__frame ai-change-preview__frame--full-width"
+            data-preview-mode="desktop"
+            data-testid="ai-preview-frame"
+          >
+            <SuggestedCanvasPreview document={changeSet.nextDocument} highlights={changeHighlights} />
+          </div>
         </div>
       </div>
-      <div className="ai-change-preview__actions">
+      <div className="ai-change-preview__actions" data-testid="ai-change-preview-actions">
         <button className="ui-btn ui-btn-secondary" onClick={onDiscard} type="button">
           放弃修改
         </button>

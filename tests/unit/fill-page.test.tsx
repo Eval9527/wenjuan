@@ -2,7 +2,19 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { render, screen } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const submittedCookieValues = vi.hoisted(() => new Map<string, string>());
+
+vi.mock('next/headers', () => ({
+  cookies: vi.fn(async () => ({
+    get: (name: string) => {
+      const value = submittedCookieValues.get(name);
+      return value === undefined ? undefined : { name, value };
+    }
+  }))
+}));
+
 import FillSurveyPage from '@/app/f/[surveyId]/page';
 import { createEmptySurvey } from '@/features/survey-schema/factories';
 import { publishSurveyDraft, saveSurveyDraft } from '@/features/persistence/repository';
@@ -11,6 +23,7 @@ describe('FillSurveyPage', () => {
   let dataDir: string;
 
   beforeEach(async () => {
+    submittedCookieValues.clear();
     dataDir = await mkdtemp(path.join(tmpdir(), 'wenjuan-fill-'));
     process.env.WENJUAN_DATA_DIR = dataDir;
   });
@@ -77,5 +90,32 @@ describe('FillSurveyPage', () => {
 
     expect(screen.getByRole('heading', { name: '活动报名表' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: '新版活动报名表' })).not.toBeInTheDocument();
+  });
+
+  it('shows the submitted success state when the local cookie is present', async () => {
+    const survey = {
+      ...createEmptySurvey({ id: 'demo' }),
+      title: '活动报名表',
+      blocks: [{ id: 'title-1', type: 'title' as const, label: '活动报名表', level: 1 }]
+    };
+
+    await saveSurveyDraft({
+      surveyId: 'demo',
+      version: 1,
+      document: survey
+    });
+    await publishSurveyDraft('demo');
+    submittedCookieValues.set('wenjuan_submitted_demo', '1');
+
+    render(
+      await FillSurveyPage({
+        params: Promise.resolve({ surveyId: 'demo' })
+      })
+    );
+
+    expect(screen.getByText('提交成功，感谢填写')).toBeInTheDocument();
+    expect(screen.getByText('您的答卷已成功记录。')).toBeInTheDocument();
+    expect(screen.queryByTestId('published-survey-form')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '再填写一份' })).not.toBeInTheDocument();
   });
 });

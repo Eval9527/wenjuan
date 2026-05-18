@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { SurveyRenderer } from '@/features/renderer/SurveyRenderer';
 import type { RendererMode } from '@/features/renderer/renderers';
+import { buildSurveySubmissionCookie } from '@/features/responses/submission-cookie';
 import type { SurveyDocument } from '@/features/survey-schema/schema';
 
 function toAnswerPayload(formData: FormData) {
@@ -33,12 +34,14 @@ function toAnswerPayload(formData: FormData) {
 
 export function PublishedSurveyPage({
   surveyId,
-  document
+  document,
+  initialSubmitted = false
 }: {
   surveyId: string;
   document: SurveyDocument;
+  initialSubmitted?: boolean;
 }) {
-  const [submitted, setSubmitted] = useState(false);
+  const [submitted, setSubmitted] = useState(initialSubmitted);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [rendererMode, setRendererMode] = useState<RendererMode>('published-desktop');
@@ -75,7 +78,7 @@ export function PublishedSurveyPage({
           minHeight: isCompact ? '100vh' : 'auto',
           display: 'flex',
           flexDirection: 'column',
-          gap: 20,
+          gap: 16,
           borderRadius: isCompact ? 0 : 8,
           margin: 0
         }}
@@ -94,20 +97,11 @@ export function PublishedSurveyPage({
             <div style={{ width: 64, height: 64, borderRadius: '50%', background: '#ecfdf3', color: '#027a48', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32, marginBottom: 8 }}>✓</div>
             <strong style={{ fontSize: 24, margin: 0 }}>提交成功，感谢填写</strong>
             <p style={{ margin: 0, color: '#667085' }}>您的答卷已成功记录。</p>
-            <button
-              className="ui-btn ui-btn-primary"
-              onClick={() => {
-                setSubmitted(false);
-                setError(null);
-              }}
-              type="button"
-              style={{ marginTop: 24, minWidth: 140 }}
-            >
-              再填写一份
-            </button>
           </section>
         ) : (
           <form
+            className="published-survey-form"
+            data-testid="published-survey-form"
             onSubmit={async (event) => {
               event.preventDefault();
               setIsSubmitting(true);
@@ -129,6 +123,7 @@ export function PublishedSurveyPage({
                 }
 
                 await response.json();
+                globalThis.document.cookie = buildSurveySubmissionCookie(surveyId);
                 setSubmitted(true);
               } catch (submitError) {
                 setError(submitError instanceof Error ? '提交失败，请稍后重试' : '提交失败');
@@ -136,10 +131,10 @@ export function PublishedSurveyPage({
                 setIsSubmitting(false);
               }
             }}
-            style={{ display: 'flex', flexDirection: 'column', gap: 20 }}
+            style={{ display: 'flex', flexDirection: 'column', gap: 16 }}
           >
             <SurveyRenderer document={document} mode={rendererMode} />
-            <div style={{ padding: '0 12px', display: 'flex', flexDirection: 'column', gap: 12, marginTop: 8 }}>
+            <div style={{ padding: '0 12px', display: 'flex', flexDirection: 'column', gap: 10, marginTop: 4 }}>
               {error ? <p style={{ margin: 0, color: '#b42318' }}>{error}</p> : null}
               <button
                 aria-label={isSubmitting ? '提交中' : document.settings.submitLabel}

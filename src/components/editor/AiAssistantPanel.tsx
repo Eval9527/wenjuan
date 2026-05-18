@@ -83,11 +83,33 @@ function isAbortError(error: unknown) {
   return error instanceof DOMException && error.name === 'AbortError';
 }
 
+function clearEditorUrlParams(paramNames: string[]) {
+  if (typeof window === 'undefined' || !paramNames.length) {
+    return;
+  }
+
+  const url = new URL(window.location.href);
+  let changed = false;
+
+  for (const paramName of paramNames) {
+    if (url.searchParams.has(paramName)) {
+      url.searchParams.delete(paramName);
+      changed = true;
+    }
+  }
+
+  if (changed) {
+    window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+  }
+}
+
 export function AiAssistantPanel({
+  initialPrompt,
   readOnly = false,
   isGenerating = false,
   onGenerationStateChange
 }: {
+  initialPrompt?: string;
   readOnly?: boolean;
   isGenerating?: boolean;
   onGenerationStateChange?: (isGenerating: boolean) => void;
@@ -97,10 +119,13 @@ export function AiAssistantPanel({
   const setPendingChangeSet = useEditorStore((state) => state.setPendingChangeSet);
   const discardPendingChangeSet = useEditorStore((state) => state.discardPendingChangeSet);
   const applyPendingChangeSet = useEditorStore((state) => state.applyPendingChangeSet);
-  const [prompt, setPrompt] = useState('');
+  const applyChangeSet = useEditorStore((state) => state.applyChangeSet);
+  const normalizedInitialPrompt = initialPrompt?.trim() ?? '';
+  const [prompt, setPrompt] = useState(normalizedInitialPrompt);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const hasAutoRequestedRef = useRef(false);
   const interactionDisabled = readOnly || isLoading || isGenerating;
 
   useEffect(() => {
@@ -109,7 +134,34 @@ export function AiAssistantPanel({
     };
   }, []);
 
-  async function requestChanges(nextPrompt = prompt) {
+  useEffect(() => {
+    const nextPrompt = initialPrompt?.trim();
+
+    if (!nextPrompt || readOnly || hasAutoRequestedRef.current) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      if (hasAutoRequestedRef.current) {
+        return;
+      }
+
+      hasAutoRequestedRef.current = true;
+      setPrompt(nextPrompt);
+      void requestChanges(nextPrompt, { clearAiPromptFromUrl: true });
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [initialPrompt, readOnly]);
+
+  async function requestChanges(
+    nextPrompt = prompt,
+    options: {
+      clearAiPromptFromUrl?: boolean;
+    } = {}
+  ) {
     if (readOnly || isLoading || isGenerating) {
       return;
     }
@@ -135,7 +187,15 @@ export function AiAssistantPanel({
       }
 
       const payload = aiDraftChangeSetSchema.parse(await response.json());
-      setPendingChangeSet(payload);
+      if (survey.blocks.length === 0) {
+        applyChangeSet(payload);
+      } else {
+        setPendingChangeSet(payload);
+      }
+
+      if (options.clearAiPromptFromUrl) {
+        clearEditorUrlParams(['aiPrompt']);
+      }
     } catch (requestError) {
       setError(isAbortError(requestError) ? AI_GENERATION_ABORTED_MESSAGE : AI_GENERATION_ERROR_MESSAGE);
     } finally {
@@ -174,7 +234,7 @@ export function AiAssistantPanel({
       <div className="ui-panel-soft p-4">
         <div className="space-y-1">
           <strong className="text-[15px] leading-6 text-[#101828]">快速开始</strong>
-          <p className="m-0 text-xs leading-5 text-[#667085]">先点一个示例把 prompt 填进去，再直接让 AI 生成建议。</p>
+          <p className="m-0 text-xs leading-5 text-[#667085]">点一个示例填入指令，再用下方按钮生成修改建议。</p>
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
           {QUICK_PROMPTS.map((item) => (
@@ -188,16 +248,6 @@ export function AiAssistantPanel({
               {item.label}
             </button>
           ))}
-        </div>
-        <div className="mt-3">
-          <button
-            className="ui-btn ui-btn-primary"
-            disabled={!prompt.trim() || interactionDisabled}
-            onClick={() => requestChanges()}
-            type="button"
-          >
-            直接生成建议
-          </button>
         </div>
       </div>
 
@@ -234,7 +284,11 @@ export function AiAssistantPanel({
       {isLoading || isGenerating ? (
         <div className="ai-generation-hint" role="status">
           <div className="space-y-1">
-            <p className="m-0 text-xs leading-5 text-[#475569]">这一步不会直接修改问卷，生成后会先给你预览。</p>
+            <p className="m-0 text-xs leading-5 text-[#475569]">
+              {survey.blocks.length === 0
+                ? '当前问卷为空，生成完成后会直接放到画布里。'
+                : '这一步不会直接修改问卷，生成后会先给你预览。'}
+            </p>
             <p className="m-0 text-xs leading-5 text-[#64748b]">如果觉得等太久，可以中断后换个说法再试。</p>
           </div>
           <button className="ui-btn ui-btn-secondary w-full" onClick={cancelGeneration} type="button">

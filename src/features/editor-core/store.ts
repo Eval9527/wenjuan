@@ -25,6 +25,7 @@ export type EditorStoreState = {
   setPendingChangeSet: (changeSet: AiDraftChangeSet | null) => void;
   discardPendingChangeSet: () => void;
   applyPendingChangeSet: () => void;
+  applyChangeSet: (changeSet: AiDraftChangeSet) => void;
   undo: () => void;
   redo: () => void;
 };
@@ -213,6 +214,17 @@ export function createEditorStore({
     setPreviewMode: (mode) => set(() => ({ previewMode: mode })),
     setPendingChangeSet: (changeSet) => set(() => ({ pendingChangeSet: changeSet })),
     discardPendingChangeSet: () => set(() => ({ pendingChangeSet: null })),
+    applyChangeSet: (changeSet) =>
+      set((state) => {
+        if (changeSet.basedOnVersion !== state.survey.meta.version) {
+          return state;
+        }
+
+        return {
+          ...withCommittedSurvey(state, changeSet.nextDocument, { keepVersion: true }),
+          selectedBlockId: null
+        };
+      }),
     applyPendingChangeSet: () =>
       set((state) => {
         const changeSet = state.pendingChangeSet;
@@ -222,7 +234,7 @@ export function createEditorStore({
 
         return {
           ...withCommittedSurvey(state, changeSet.nextDocument, { keepVersion: true }),
-          selectedBlockId: changeSet.nextDocument.blocks.at(-1)?.id ?? null
+          selectedBlockId: null
         };
       }),
     undo: () =>

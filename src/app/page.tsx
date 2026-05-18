@@ -1,4 +1,5 @@
 import { HomeSurveyActions } from '@/components/home/HomeSurveyActions';
+import { HomeQuickGenerateForm } from '@/components/home/HomeQuickGenerateForm';
 import { listSurveyDrafts, type SurveyListItem } from '@/features/persistence/repository';
 import { surveyTemplateCatalog } from '@/features/survey-schema/templates';
 
@@ -44,6 +45,10 @@ function getStatusMeta(status: string) {
   }
 }
 
+function getSurveyCenterHref(status: string) {
+  return status === 'all' ? '/surveys' : `/surveys?status=${status}`;
+}
+
 export default async function HomePage({
   searchParams
 }: {
@@ -56,8 +61,7 @@ export default async function HomePage({
   const totalResponses = surveys.reduce((sum, survey) => sum + survey.responseCount, 0);
   const status = resolvedSearchParams.status ?? 'all';
   const filteredSurveys = filterSurveys(surveys, status);
-  const viewAll = resolvedSearchParams.view === 'all';
-  const visibleSurveys = viewAll ? filteredSurveys : filteredSurveys.slice(0, 5);
+  const visibleSurveys = filteredSurveys.slice(0, 5);
   const statusMeta = getStatusMeta(status);
 
   return (
@@ -75,23 +79,7 @@ export default async function HomePage({
         </div>
 
         <div className="w-full max-w-2xl mt-2">
-          <form action="/new" method="get" className="flex items-center gap-3 rounded-xl border border-[#d7dee8] bg-white p-2 shadow-sm transition-shadow focus-within:border-[#2563eb] focus-within:ring-4 focus-within:ring-[#2563eb]/10 hover:shadow-md">
-            <div className="pl-4 text-[#2563eb]">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
-              </svg>
-            </div>
-            <input 
-              type="text" 
-              name="prompt"
-              className="flex-1 bg-transparent px-2 py-3 text-[16px] text-[#101828] outline-none placeholder:text-[#94a3b8]" 
-              placeholder="例如：我想做一份关于打工人睡眠质量的问卷调查..." 
-              required
-            />
-            <button type="submit" className="ui-btn ui-btn-primary shrink-0 px-6">
-              生成问卷
-            </button>
-          </form>
+          <HomeQuickGenerateForm />
           
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3 text-sm text-[#667085]">
             <span>或者尝试：</span>
@@ -110,9 +98,9 @@ export default async function HomePage({
       {/* 数据看板 */}
       <section className="grid gap-4 md:grid-cols-3">
         {[
-          { label: '全部问卷', value: totalSurveys, href: '/?view=all' },
-          { label: '已发布', value: publishedSurveys, href: '/?view=all&status=published' },
-          { label: '累计答卷', value: totalResponses, href: '/?view=all&status=responded' }
+          { label: '全部问卷', value: totalSurveys, href: '/surveys' },
+          { label: '已发布', value: publishedSurveys, href: '/surveys?status=published' },
+          { label: '累计答卷', value: totalResponses, href: '/surveys?status=responded' }
         ].map((item) => (
           <a className="ui-panel-soft flex items-center justify-between p-6 transition-colors hover:bg-[#f1f5f9] hover:border-[#c4cfdd]" href={item.href} key={item.label}>
             <span className="text-[15px] font-[500] text-[#667085]">{item.label}</span>
@@ -126,20 +114,15 @@ export default async function HomePage({
         <div className="flex items-center justify-between border-b border-[#eef2f6] pb-3">
           <div className="flex items-center gap-3">
             <h2 className="text-[18px] font-[600] text-[#101828] m-0">
-              {viewAll ? statusMeta.label : '最近问卷'}
+              最近问卷
             </h2>
             {status !== 'all' && <span className="ui-chip">筛选中</span>}
           </div>
           
           <div className="flex items-center gap-3">
-            {!viewAll && filteredSurveys.length > 5 && (
-              <a className="text-sm font-[500] text-[#2563eb] hover:underline" href={`/?view=all${status !== 'all' ? `&status=${status}` : ''}`}>
+            {filteredSurveys.length > 5 && (
+              <a className="text-sm font-[500] text-[#2563eb] hover:underline" href={getSurveyCenterHref(status)}>
                 查看全部
-              </a>
-            )}
-            {viewAll && (
-              <a className="text-sm font-[500] text-[#667085] hover:text-[#101828]" href="/">
-                返回首页
               </a>
             )}
           </div>

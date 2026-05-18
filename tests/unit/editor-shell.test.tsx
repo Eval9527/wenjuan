@@ -1,3 +1,4 @@
+import { StrictMode } from 'react';
 import { createEvent, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { EditorShell } from '@/components/editor/EditorShell';
@@ -97,6 +98,7 @@ describe('EditorShell', () => {
     expect(screen.getByText('文本显示')).toBeInTheDocument();
     expect(screen.getByText('用户输入')).toBeInTheDocument();
     expect(screen.getByText('用户选择')).toBeInTheDocument();
+    expect(screen.getByText('画布尺寸')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '桌面预览' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '移动预览' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'AI 助手' })).toBeInTheDocument();
@@ -521,7 +523,9 @@ describe('EditorShell', () => {
       expect(writeText).toHaveBeenCalledWith(expect.stringMatching(/\/f\/demo$/));
     });
 
-    expect(screen.getByText('分享链接已复制')).toBeInTheDocument();
+    const toast = screen.getByRole('status');
+    expect(toast).toHaveClass('editor-toast');
+    expect(toast).toHaveTextContent('分享链接已复制');
   });
 
 
@@ -538,6 +542,8 @@ describe('EditorShell', () => {
     expect(await screen.findByRole('button', { name: '生成中' })).toBeDisabled();
     expect(screen.queryByText('AI 正在生成修改建议')).not.toBeInTheDocument();
     expect(screen.getByText('这一步不会直接修改问卷，生成后会先给你预览。')).toBeInTheDocument();
+    expect(screen.getByText('AI 正在生成问卷，请稍等，生成完成后就能继续添加组件。')).toBeInTheDocument();
+    expect(screen.queryByText('问卷已锁定，无法添加组件。')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: '标题' })).toBeDisabled();
     expect(screen.getByRole('button', { name: '拖拽排序 姓名' })).toBeDisabled();
     expect(screen.getByLabelText('问卷标题')).toBeDisabled();
@@ -593,10 +599,12 @@ describe('EditorShell', () => {
 
     render(<EditorShell surveyId="demo" />);
 
+    expect(screen.queryByRole('button', { name: '直接生成建议' })).not.toBeInTheDocument();
+    expect(screen.getByText('点一个示例填入指令，再用下方按钮生成修改建议。')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '活动报名' }));
     expect(screen.getByLabelText('AI prompt')).toHaveValue('生成一个活动报名问卷，包含标题、姓名填写、单选参与场次');
 
-    fireEvent.click(screen.getByRole('button', { name: '直接生成建议' }));
+    fireEvent.click(screen.getByRole('button', { name: '生成修改建议' }));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
@@ -606,6 +614,98 @@ describe('EditorShell', () => {
           body: expect.stringContaining('活动报名问卷')
         })
       );
+    });
+  });
+
+  it('applies ai generation directly when the current survey is empty', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => createAiPreviewPayload()
+    } as Response);
+
+    render(<EditorShell surveyId="demo" />);
+
+    fireEvent.change(screen.getByLabelText('AI prompt'), {
+      target: { value: '生成一个活动报名问卷' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: '生成修改建议' }));
+
+    expect(await screen.findByLabelText('姓名')).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '应用修改' })).not.toBeInTheDocument();
+  });
+
+  it('auto applies ai generation from a homepage prompt when the current survey is empty', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        id: 'change-home-prompt',
+        basedOnVersion: 1,
+        userIntent: '生成一份打工人睡眠质量的问卷调查',
+        summary: '生成睡眠质量问卷',
+        operations: [
+          {
+            type: 'addBlock',
+            block: {
+              id: 'sleep-title',
+              type: 'title',
+              label: '打工人睡眠质量调查',
+              level: 1
+            }
+          }
+        ],
+        nextDocument: {
+          id: 'demo',
+          title: '打工人睡眠质量调查',
+          blocks: [
+            {
+              id: 'sleep-title',
+              type: 'title',
+              label: '打工人睡眠质量调查',
+              level: 1
+            }
+          ],
+          settings: { submitLabel: '提交' },
+          meta: {
+            version: 2,
+            createdAt: '2026-04-13T00:00:00.000Z',
+            updatedAt: '2026-04-13T00:00:00.000Z'
+          }
+        }
+      })
+    } as Response);
+
+    window.history.pushState({}, '', '/editor/demo?aiPrompt=%E6%89%93%E5%B7%A5%E4%BA%BA');
+
+    render(
+      <StrictMode>
+        <EditorShell surveyId="demo" initialAiPrompt="生成一份打工人睡眠质量的问卷调查" />
+      </StrictMode>
+    );
+
+    expect(screen.getByLabelText('AI prompt')).toHaveValue('生成一份打工人睡眠质量的问卷调查');
+    expect(await screen.findByRole('heading', { name: '打工人睡眠质量调查' })).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.queryByText('生成睡眠质量问卷')).not.toBeInTheDocument();
+    expect(screen.queryByText('已中断生成，当前问卷没有变化。')).not.toBeInTheDocument();
+    expect(window.location.search).toBe('');
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/ai/changes',
+      expect.objectContaining({
+        method: 'POST',
+        body: expect.stringContaining('打工人睡眠质量')
+      })
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('removes the quick template id from the editor url after the template is loaded', async () => {
+    window.history.pushState({}, '', '/editor/demo?template=worker-sleep');
+
+    render(<EditorShell surveyId="demo" initialTemplateKey="worker-sleep" />);
+
+    await waitFor(() => {
+      expect(window.location.search).toBe('');
     });
   });
 
@@ -688,7 +788,7 @@ describe('EditorShell', () => {
       })
     } as Response);
 
-    render(<EditorShell surveyId="demo" />);
+    render(<EditorShell surveyId="demo" initialSurvey={createEditorSurveyWithOneBlock()} />);
 
     fireEvent.change(screen.getByLabelText('AI prompt'), {
       target: { value: '生成一个满意度问卷' }
@@ -706,5 +806,7 @@ describe('EditorShell', () => {
 
     expect(screen.getByRole('heading', { name: '满意度调查' })).toBeInTheDocument();
     expect(screen.getByRole('group', { name: '你对产品满意吗？' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'AI 助手' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: '组件属性' })).toHaveAttribute('aria-selected', 'false');
   });
 });

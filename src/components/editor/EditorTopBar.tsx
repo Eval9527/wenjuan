@@ -183,7 +183,6 @@ export function EditorTopBar({
               {publishState.message}
             </span>
           ) : null}
-          {copyMessage && <span className="text-xs text-[#2563eb]">{copyMessage}</span>}
         </div>
         {isLocked ? <span className="sr-only">当前问卷已发布，编辑已锁定</span> : null}
         {interactionLocked ? <span className="sr-only">AI 生成中，编辑暂时锁定</span> : null}
@@ -218,6 +217,11 @@ export function EditorTopBar({
           {publishState?.status === 'publishing' ? '发布中...' : '发布问卷'}
         </button>
       </div>
+      {copyMessage ? (
+        <div className="editor-toast" role="status">
+          {copyMessage}
+        </div>
+      ) : null}
     </header>
   );
 }

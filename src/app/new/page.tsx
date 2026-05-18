@@ -9,13 +9,15 @@ function createSurveyId() {
 export default async function NewSurveyPage({
   searchParams
 }: {
-  searchParams?: Promise<{ template?: string }>;
+  searchParams?: Promise<{ template?: string; prompt?: string }>;
 }) {
   const resolvedSearchParams = (await searchParams) ?? undefined;
   const surveyId = createSurveyId();
+  const prompt = typeof resolvedSearchParams?.prompt === 'string' ? resolvedSearchParams.prompt.trim() : '';
+  const template = typeof resolvedSearchParams?.template === 'string' ? resolvedSearchParams.template.trim() : undefined;
   const document = createSurveyFromTemplate({
     id: surveyId,
-    template: resolvedSearchParams?.template
+    template: prompt ? undefined : template
   });
 
   await saveSurveyDraft({
@@ -24,5 +26,13 @@ export default async function NewSurveyPage({
     document
   });
 
-  redirect(`/editor/${surveyId}`);
+  if (prompt) {
+    return redirect(`/editor/${surveyId}?aiPrompt=${encodeURIComponent(prompt)}`);
+  }
+
+  if (template) {
+    return redirect(`/editor/${surveyId}?template=${encodeURIComponent(template)}`);
+  }
+
+  return redirect(`/editor/${surveyId}`);
 }

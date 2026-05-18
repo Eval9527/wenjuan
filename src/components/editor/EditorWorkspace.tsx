@@ -24,7 +24,15 @@ function createPublishState(publishedVersion: number | null, hasUnpublishedChang
   };
 }
 
-export function EditorWorkspace({ surveyId }: { surveyId: string }) {
+export function EditorWorkspace({
+  surveyId,
+  initialAiPrompt,
+  initialTemplateKey
+}: {
+  surveyId: string;
+  initialAiPrompt?: string;
+  initialTemplateKey?: string;
+}) {
   const [initialSurvey, setInitialSurvey] = useState<SurveyDocument | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [persistenceState, setPersistenceState] = useState<EditorPersistenceState>({
@@ -344,6 +352,8 @@ export function EditorWorkspace({ surveyId }: { surveyId: string }) {
       persistenceState={persistenceState}
       publishState={publishState}
       responseCount={responseCount}
+      initialAiPrompt={initialAiPrompt}
+      initialTemplateKey={initialTemplateKey}
       surveyId={surveyId}
     />
   );

@@ -81,6 +81,10 @@ describe('AiChangePreview', () => {
       />
     );
 
+    expect(screen.getByTestId('ai-change-preview-body')).toHaveClass('ai-change-preview__body');
+    expect(screen.getByTestId('ai-change-preview-details')).toHaveClass('ai-change-preview__details');
+    expect(screen.getByTestId('ai-change-operation-list')).toHaveClass('ai-change-preview__operation-list');
+    expect(screen.getByTestId('ai-change-preview-actions')).toHaveClass('ai-change-preview__actions');
     expect(screen.getByText('变更明细')).toBeInTheDocument();
     expect(screen.getAllByText('修改').length).toBeGreaterThan(0);
     expect(screen.getAllByText('新增').length).toBeGreaterThan(0);

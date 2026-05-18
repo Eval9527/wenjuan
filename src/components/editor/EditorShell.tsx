@@ -14,6 +14,26 @@ import { SurveyCanvas } from './SurveyCanvas';
 export { type EditorPersistenceState } from './EditorTopBar';
 export { type EditorPublishState } from './EditorTopBar';
 
+function clearEditorUrlParams(paramNames: string[]) {
+  if (typeof window === 'undefined' || !paramNames.length) {
+    return;
+  }
+
+  const url = new URL(window.location.href);
+  let changed = false;
+
+  for (const paramName of paramNames) {
+    if (url.searchParams.has(paramName)) {
+      url.searchParams.delete(paramName);
+      changed = true;
+    }
+  }
+
+  if (changed) {
+    window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+  }
+}
+
 function SideTab({
   active,
   children,
@@ -49,6 +69,8 @@ export function EditorShell({
   initialSurvey,
   persistenceState,
   publishState,
+  initialAiPrompt,
+  initialTemplateKey,
   onPublish,
   onBack,
   onSurveyChange
@@ -57,6 +79,8 @@ export function EditorShell({
   initialSurvey?: SurveyDocument;
   persistenceState?: EditorPersistenceState;
   publishState?: EditorPublishState;
+  initialAiPrompt?: string;
+  initialTemplateKey?: string;
   onPublish?: () => void;
   onBack?: () => void;
   responseCount?: number;
@@ -67,6 +91,12 @@ export function EditorShell({
   const [isAiGenerating, setIsAiGenerating] = useState(false);
   const isLocked = Boolean(publishState?.publishedVersion);
   const isEditorInteractionLocked = isLocked || isAiGenerating;
+
+  useEffect(() => {
+    if (initialTemplateKey) {
+      clearEditorUrlParams(['template']);
+    }
+  }, [initialTemplateKey]);
 
   if (!storeRef.current) {
     storeRef.current = createEditorStore({
@@ -88,6 +118,7 @@ export function EditorShell({
     if (activeTab === 'ai') {
       return (
         <AiAssistantPanel
+          initialPrompt={initialAiPrompt}
           isGenerating={isAiGenerating}
           onGenerationStateChange={setIsAiGenerating}
           readOnly={isLocked}
@@ -96,7 +127,7 @@ export function EditorShell({
     }
 
     return <InspectorPanel readOnly={isEditorInteractionLocked} />;
-  }, [activeTab, isAiGenerating, isEditorInteractionLocked, isLocked]);
+  }, [activeTab, initialAiPrompt, isAiGenerating, isEditorInteractionLocked, isLocked]);
 
   useEffect(() => {
     if (isAiGenerating) {
@@ -128,7 +159,7 @@ export function EditorShell({
           surveyId={surveyId}
         />
         <div className="editor-main-area">
-          <BlockPalette readOnly={isEditorInteractionLocked} />
+          <BlockPalette readOnly={isEditorInteractionLocked} lockReason={isAiGenerating ? 'ai-generating' : 'published'} />
           <SurveyCanvas readOnly={isEditorInteractionLocked} />
           <aside className="editor-side-panel editor-side-panel--right">
             <div aria-label="面板切换" className="editor-side-tabs" role="tablist">

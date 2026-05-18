@@ -31,6 +31,10 @@ describe('HomePage', () => {
       ...createEmptySurvey({ id: 'demo' }),
       title: '活动报名表'
     };
+    const publishedWithoutResponses = {
+      ...createEmptySurvey({ id: 'published-empty' }),
+      title: '公开填写问卷'
+    };
     const draftOnlySurvey = {
       ...createEmptySurvey({ id: 'draft-only' }),
       title: '内部预览问卷'
@@ -46,6 +50,12 @@ describe('HomePage', () => {
       demo: 'ok'
     });
     await saveSurveyDraft({
+      surveyId: 'published-empty',
+      version: publishedWithoutResponses.meta.version,
+      document: publishedWithoutResponses
+    });
+    await publishSurveyDraft('published-empty');
+    await saveSurveyDraft({
       surveyId: 'draft-only',
       version: draftOnlySurvey.meta.version,
       document: draftOnlySurvey
@@ -60,11 +70,15 @@ describe('HomePage', () => {
     expect(totalCard).not.toBeNull();
     expect(publishedCardSummary).not.toBeNull();
     expect(responsesCard).not.toBeNull();
-    expect(within(totalCard as HTMLElement).getByText('2')).toBeInTheDocument();
-    expect(within(publishedCardSummary as HTMLElement).getByText('1')).toBeInTheDocument();
+    expect(totalCard).toHaveAttribute('href', '/surveys');
+    expect(publishedCardSummary).toHaveAttribute('href', '/surveys?status=published');
+    expect(responsesCard).toHaveAttribute('href', '/surveys?status=responded');
+    expect(within(totalCard as HTMLElement).getByText('3')).toBeInTheDocument();
+    expect(within(publishedCardSummary as HTMLElement).getByText('2')).toBeInTheDocument();
     expect(within(responsesCard as HTMLElement).getByText('1')).toBeInTheDocument();
 
     expect(screen.getByRole('button', { name: '生成问卷' })).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/打工人睡眠质量/)).not.toBeRequired();
     expect(screen.getByText('活动报名表')).toBeInTheDocument();
     expect(screen.getByText('已锁定 · v1')).toBeInTheDocument();
     expect(screen.getByText('答卷: 1 份')).toBeInTheDocument();
@@ -72,28 +86,30 @@ describe('HomePage', () => {
     const publishedCard = screen.getByText('活动报名表').closest('article');
     expect(publishedCard).not.toBeNull();
     expect(within(publishedCard as HTMLElement).queryByRole('link', { name: '继续编辑' })).not.toBeInTheDocument();
-    expect(within(publishedCard as HTMLElement).getByRole('link', { name: '查看填写页' })).toHaveAttribute('href', '/f/demo');
+    expect(within(publishedCard as HTMLElement).getByRole('link', { name: '查看问卷数据' })).toHaveAttribute('href', '/surveys/demo/data');
+    expect(within(publishedCard as HTMLElement).queryByRole('link', { name: '查看填写页' })).not.toBeInTheDocument();
     expect(within(publishedCard as HTMLElement).getByRole('button', { name: '复制问卷' })).toBeInTheDocument();
-    expect(within(publishedCard as HTMLElement).getByRole('link', { name: '填写页' })).toBeInTheDocument();
-    fireEvent.click(within(publishedCard as HTMLElement).getByRole('button', { name: '复制链接' }));
-
-    await waitFor(() => {
-      expect(writeText).toHaveBeenCalledWith(expect.stringMatching(/\/f\/demo$/));
-    });
-
-    expect(within(publishedCard as HTMLElement).getByText('已复制')).toBeInTheDocument();
+    expect(within(publishedCard as HTMLElement).getByRole('link', { name: '填写页' })).toHaveAttribute('href', '/f/demo');
+    expect(within(publishedCard as HTMLElement).queryByRole('button', { name: '复制填写链接' })).not.toBeInTheDocument();
+    expect(writeText).not.toHaveBeenCalled();
 
     const draftOnlyCard = screen.getByText('内部预览问卷').closest('article');
     expect(draftOnlyCard).not.toBeNull();
     expect(within(draftOnlyCard as HTMLElement).queryByRole('link', { name: '填写页' })).not.toBeInTheDocument();
 
+    const publishedWithoutResponsesCard = screen.getByText('公开填写问卷').closest('article');
+    expect(publishedWithoutResponsesCard).not.toBeNull();
+    expect(within(publishedWithoutResponsesCard as HTMLElement).getByRole('link', { name: '查看填写页' })).toHaveAttribute('href', '/f/published-empty');
+    expect(within(publishedWithoutResponsesCard as HTMLElement).queryByRole('link', { name: '填写页' })).not.toBeInTheDocument();
+
     expect(screen.getByRole('link', { name: '空白开始' })).toHaveAttribute('href', '/new');
     expect(screen.getByRole('link', { name: '活动报名模板' })).toHaveAttribute('href', '/new?template=event-signup');
     expect(screen.getByRole('link', { name: '满意度回访模板' })).toHaveAttribute('href', '/new?template=satisfaction');
     expect(screen.getByRole('link', { name: '线索收集模板' })).toHaveAttribute('href', '/new?template=lead-collection');
+    expect(screen.getByRole('link', { name: '睡眠质量模板' })).toHaveAttribute('href', '/new?template=worker-sleep');
   });
 
-  it('shows only the latest 5 surveys by default and can view all', async () => {
+  it('shows only the latest 5 surveys by default and sends view all to survey center', async () => {
     for (let index = 1; index <= 6; index += 1) {
       await saveSurveyDraft({
         surveyId: `survey-${index}`,
@@ -111,18 +127,8 @@ describe('HomePage', () => {
     expect(screen.queryByText('问卷 1')).not.toBeInTheDocument();
     expect(screen.getByText('问卷 2')).toBeInTheDocument();
     expect(screen.getByText('问卷 6')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: '查看全部' })).toHaveAttribute('href', '/?view=all');
+    expect(screen.getByRole('link', { name: '查看全部' })).toHaveAttribute('href', '/surveys');
 
     firstRender.unmount();
-
-    render(
-      await HomePage({
-        searchParams: Promise.resolve({
-          view: 'all'
-        })
-      } as never)
-    );
-
-    expect(screen.getByText('问卷 1')).toBeInTheDocument();
   });
 });

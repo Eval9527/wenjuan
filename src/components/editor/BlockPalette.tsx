@@ -150,7 +150,13 @@ function SortableOutlineItem({
   );
 }
 
-export function BlockPalette({ readOnly = false }: { readOnly?: boolean }) {
+export function BlockPalette({
+  readOnly = false,
+  lockReason = 'published'
+}: {
+  readOnly?: boolean;
+  lockReason?: 'ai-generating' | 'published';
+}) {
   const addBlock = useEditorStore((state) => state.addBlock);
   const blocks = useEditorStore((state) => state.survey.blocks);
   const selectedBlockId = useEditorStore((state) => state.selectedBlockId);
@@ -221,7 +227,9 @@ export function BlockPalette({ readOnly = false }: { readOnly?: boolean }) {
             </div>
             {readOnly && (
               <div className="rounded-lg bg-[#fff7ed] px-3 py-2 text-sm text-[#b54708]">
-                问卷已锁定，无法添加组件。
+                {lockReason === 'ai-generating'
+                  ? 'AI 正在生成问卷，请稍等，生成完成后就能继续添加组件。'
+                  : '当前问卷已发布，暂时不能添加组件。'}
               </div>
             )}
 
