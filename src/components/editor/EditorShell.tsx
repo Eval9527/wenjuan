@@ -50,6 +50,7 @@ export function EditorShell({
   persistenceState,
   publishState,
   onPublish,
+  onBack,
   onSurveyChange
 }: {
   surveyId: string;
@@ -57,6 +58,7 @@ export function EditorShell({
   persistenceState?: EditorPersistenceState;
   publishState?: EditorPublishState;
   onPublish?: () => void;
+  onBack?: () => void;
   responseCount?: number;
   onSurveyChange?: (survey: SurveyDocument) => void;
 }) {
@@ -119,6 +121,7 @@ export function EditorShell({
       <div className="editor-shell">
         <EditorTopBar
           onPublish={onPublish}
+          onBack={onBack}
           persistenceState={persistenceState}
           publishState={publishState}
           interactionLocked={isAiGenerating}

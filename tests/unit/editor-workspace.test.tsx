@@ -118,6 +118,9 @@ describe('EditorWorkspace', () => {
   });
 
   it('publishes the latest draft from the editor workspace', async () => {
+    window.history.pushState({}, '', '/surveys');
+    window.history.pushState({}, '', '/editor/demo');
+    const historyGo = vi.spyOn(window.history, 'go').mockImplementation(() => undefined);
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
       const url = typeof input === 'string' ? input : input instanceof Request ? input.url : String(input);
 
@@ -233,7 +236,14 @@ describe('EditorWorkspace', () => {
       ).toBe(true);
     });
 
-    expect(screen.getByText('已发布 v2')).toBeInTheDocument();
+    expect(screen.getByText('发布成功')).toBeInTheDocument();
+
+    await waitFor(
+      () => {
+        expect(historyGo).toHaveBeenCalledWith(-2);
+      },
+      { timeout: 1000 }
+    );
   });
 
   it('loads the published snapshot as readonly without showing response inbox data', async () => {

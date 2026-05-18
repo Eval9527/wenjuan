@@ -49,12 +49,14 @@ export function EditorTopBar({
   persistenceState,
   publishState,
   onPublish,
+  onBack,
   interactionLocked = false
 }: {
   surveyId: string;
   persistenceState?: EditorPersistenceState;
   publishState?: EditorPublishState;
   onPublish?: () => void;
+  onBack?: () => void;
   interactionLocked?: boolean;
 }) {
   const surveyTitle = useEditorStore((state) => state.survey.title);
@@ -108,6 +110,11 @@ export function EditorTopBar({
 
   function handleBack() {
     if (shouldConfirmLeave && !window.confirm('当前更改还没有保存完成，确定要返回上一页吗？')) {
+      return;
+    }
+
+    if (onBack) {
+      onBack();
       return;
     }
 

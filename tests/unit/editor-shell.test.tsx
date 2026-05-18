@@ -485,6 +485,16 @@ describe('EditorShell', () => {
     expect(screen.getByLabelText('题目标题')).toHaveValue('姓名');
   });
 
+  it('delegates the top-left back action to the workspace navigation handler', () => {
+    const onBack = vi.fn();
+
+    render(<EditorShell surveyId="demo" onBack={onBack} />);
+
+    fireEvent.click(screen.getByRole('button', { name: '返回上一页' }));
+
+    expect(onBack).toHaveBeenCalledTimes(1);
+  });
+
   it('shows top bar share actions when survey is published', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(window.navigator, 'clipboard', {

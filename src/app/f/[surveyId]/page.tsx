@@ -16,16 +16,13 @@ export default async function FillSurveyPage({
           minHeight: '100vh',
           display: 'grid',
           placeItems: 'center',
-          padding: 24
+          padding: 24,
+          background: 'var(--page-bg)'
         }}
       >
-        <div style={{ maxWidth: 420, textAlign: 'center' }}>
-          <strong>问卷尚未发布</strong>
-          <p style={{ margin: '8px 0 0', color: '#667085' }}>请先返回编辑器点击“发布问卷”，再打开填写页进行演示。</p>
-          <div style={{ display: 'flex', justifyContent: 'center', gap: 12, flexWrap: 'wrap', marginTop: 12 }}>
-            <a href={`/editor/${surveyId}`}>返回编辑器</a>
-            <a href="/">返回工作台</a>
-          </div>
+        <div className="ui-panel" style={{ maxWidth: 420, textAlign: 'center', padding: 24 }}>
+          <strong>问卷暂未开放填写</strong>
+          <p style={{ margin: '8px 0 0', color: '#667085' }}>请稍后再试，或联系问卷发起人确认填写时间。</p>
         </div>
       </main>
     );

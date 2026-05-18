@@ -35,9 +35,10 @@ describe('FillSurveyPage', () => {
       })
     );
 
-    expect(screen.getByText('问卷尚未发布')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: '返回编辑器' })).toHaveAttribute('href', '/editor/demo');
-    expect(screen.getByRole('link', { name: '返回工作台' })).toHaveAttribute('href', '/');
+    expect(screen.getByText('问卷暂未开放填写')).toBeInTheDocument();
+    expect(screen.getByText('请稍后再试，或联系问卷发起人确认填写时间。')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: '返回编辑器' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: '返回工作台' })).not.toBeInTheDocument();
   });
 
   it('renders the published snapshot instead of newer unpublished drafts', async () => {

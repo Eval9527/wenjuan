@@ -283,10 +283,12 @@ select:disabled {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface);
-  padding: 18px;
+  padding: 10px 12px;
+}
+
+.survey-block--title,
+.survey-block--paragraph {
+  padding-block: 6px;
 }
 
 .survey-block--paragraph {
@@ -428,17 +430,6 @@ select:disabled {
 
 .survey-block[data-mode='editor-preview'] .survey-choice-item input {
   cursor: default;
-}
-
-.survey-block[data-mode='editor-preview'] {
-  border-color: transparent;
-  background: transparent;
-  padding: 10px 12px;
-}
-
-.survey-block[data-mode='editor-preview'].survey-block--title,
-.survey-block[data-mode='editor-preview'].survey-block--paragraph {
-  padding-block: 6px;
 }
 
 @media (max-width: 1024px) {
@@ -841,6 +832,20 @@ select:disabled {
 .editor-preview-frame[data-preview-mode="mobile"] {
   max-width: 390px;
   padding: 18px;
+}
+
+.published-survey-frame {
+  max-width: 760px;
+}
+
+@media (max-width: 640px) {
+  .published-survey-frame {
+    width: 100%;
+    max-width: none;
+    border-width: 0;
+    box-shadow: none;
+    padding: 18px;
+  }
 }
 
 .editor-canvas-card {

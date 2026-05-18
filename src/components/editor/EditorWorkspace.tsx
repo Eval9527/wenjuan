@@ -6,6 +6,7 @@ import { createEmptySurvey } from '@/features/survey-schema/factories';
 import { surveyDocumentSchema, type SurveyDocument } from '@/features/survey-schema/schema';
 
 const AUTOSAVE_DELAY = 2500;
+const PUBLISH_SUCCESS_RETURN_DELAY = 500;
 
 function createPublishState(publishedVersion: number | null, hasUnpublishedChanges = false): EditorPublishState {
   if (!publishedVersion) {
@@ -86,6 +87,18 @@ export function EditorWorkspace({ surveyId }: { surveyId: string }) {
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const requestSequenceRef = useRef(0);
   const publishedVersionRef = useRef<number | null>(null);
+  const publishReturnTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const returnToPreviousPageOrHome = useCallback(() => {
+    allowHistoryBackRef.current = true;
+
+    if (window.history.length <= 2) {
+      window.location.href = '/';
+      return;
+    }
+
+    window.history.go(-2);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -175,8 +188,12 @@ export function EditorWorkspace({ surveyId }: { surveyId: string }) {
       if (saveTimerRef.current) {
         clearTimeout(saveTimerRef.current);
       }
+
+      if (publishReturnTimerRef.current) {
+        clearTimeout(publishReturnTimerRef.current);
+      }
     };
-  }, [surveyId]);
+  }, [returnToPreviousPageOrHome, surveyId]);
 
   const handleSurveyChange = useCallback(
     (survey: SurveyDocument) => {
@@ -283,7 +300,13 @@ export function EditorWorkspace({ surveyId }: { surveyId: string }) {
 
       const payload = await response.json();
       publishedVersionRef.current = payload.version;
-      setPublishState(createPublishState(payload.version));
+      setPublishState({
+        status: 'published',
+        message: '发布成功',
+        publishedVersion: payload.version
+      });
+
+      publishReturnTimerRef.current = setTimeout(returnToPreviousPageOrHome, PUBLISH_SUCCESS_RETURN_DELAY);
     } catch (error) {
       setPublishState((current) => ({
         ...current,
@@ -291,7 +314,7 @@ export function EditorWorkspace({ surveyId }: { surveyId: string }) {
         message: error instanceof Error ? '发布失败，请稍后重试' : '发布失败'
       }));
     }
-  }, [surveyId]);
+  }, [returnToPreviousPageOrHome, surveyId]);
 
   if (isLoading || !initialSurvey) {
     return (
@@ -315,6 +338,7 @@ export function EditorWorkspace({ surveyId }: { surveyId: string }) {
   return (
     <EditorShell
       initialSurvey={initialSurvey}
+      onBack={returnToPreviousPageOrHome}
       onPublish={handlePublish}
       onSurveyChange={handleSurveyChange}
       persistenceState={persistenceState}
