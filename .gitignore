@@ -9,3 +9,10 @@ pnpm-debug.log*
 tsconfig.tsbuildinfo
 config/ai-models.local.json
 config/ai-models.*.local.json
+
+# Local-only agent/development memory; do not publish.
+docs/
+AGENTS.md
+GEMINI.md
+.impeccable.md
+scripts/gemini-ui.sh

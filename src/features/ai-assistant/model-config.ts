@@ -1,65 +1,6 @@
-import { z } from 'zod';
-import { existsSync, readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { aiModelCatalog, type AiModelCatalog, type AiModelCatalogModel } from '@/features/ai-assistant/model-catalog';
 
-const DEFAULT_AI_CONFIG_FILE = 'config/ai-models.local.json';
-
-let aiConfigFilePathForTests: string | null = null;
-
-function timeoutSchema() {
-  return z.number().int().positive().optional();
-}
-
-const configuredModelObjectSchema = z.object({
-  id: z.string().min(1),
-  alias: z.string().min(1).optional(),
-  primary: z.boolean().optional(),
-  timeoutMs: timeoutSchema(),
-  autoTimeoutMs: timeoutSchema(),
-  singleTimeoutMs: timeoutSchema()
-});
-
-const configuredModelSchema = z.union([
-  z.string().min(1),
-  configuredModelObjectSchema
-]);
-
-const configuredProviderSchema = z.object({
-  _notes: z.union([z.string(), z.array(z.string())]).optional(),
-  id: z.string().min(1).optional(),
-  alias: z.string().min(1).optional(),
-  api: z.literal('openai-completions').optional(),
-  baseUrl: z.string().min(1),
-  apiKey: z.string().min(1),
-  headers: z.record(z.string()).optional(),
-  timeoutMs: timeoutSchema(),
-  autoTimeoutMs: timeoutSchema(),
-  singleTimeoutMs: timeoutSchema(),
-  models: z.array(configuredModelSchema).min(1)
-});
-
-const configuredProvidersSchema = z.array(configuredProviderSchema).min(1);
-const configuredRootSchema = z.union([
-  configuredProvidersSchema,
-  z.object({
-    _notes: z.union([z.string(), z.array(z.string())]).optional(),
-    timeoutMs: timeoutSchema(),
-    autoTimeoutMs: timeoutSchema(),
-    singleTimeoutMs: timeoutSchema(),
-    providers: configuredProvidersSchema
-  }),
-  z.object({
-    _notes: z.union([z.string(), z.array(z.string())]).optional(),
-    timeoutMs: timeoutSchema(),
-    autoTimeoutMs: timeoutSchema(),
-    singleTimeoutMs: timeoutSchema(),
-    sites: configuredProvidersSchema
-  }),
-  configuredProviderSchema
-]);
-
-type ConfiguredProvider = z.infer<typeof configuredProviderSchema>;
-type ConfiguredModel = z.infer<typeof configuredModelSchema>;
+let aiModelCatalogForTests: AiModelCatalog | null = null;
 
 export type AiModelCandidate = {
   id: string;
@@ -101,18 +42,7 @@ function sortPrimaryFirst(candidates: AiModelCandidate[]) {
   return [...candidates].sort((left, right) => Number(right.primary) - Number(left.primary));
 }
 
-function normalizeConfiguredModel(model: ConfiguredModel) {
-  if (typeof model === 'string') {
-    return {
-      id: model,
-      alias: model,
-      primary: false,
-      timeoutMs: undefined,
-      autoTimeoutMs: undefined,
-      singleTimeoutMs: undefined
-    };
-  }
-
+function normalizeCatalogModel(model: AiModelCatalogModel) {
   return {
     id: model.id,
     alias: model.alias?.trim() || model.id,
@@ -127,59 +57,39 @@ function normalizeTimeouts(...values: Array<number | undefined>) {
   return values.find((value) => typeof value === 'number' && Number.isFinite(value) && value > 0);
 }
 
-function normalizeRoot(root: z.infer<typeof configuredRootSchema>): {
-  providers: ConfiguredProvider[];
-  timeoutMs?: number;
-  autoTimeoutMs?: number;
-  singleTimeoutMs?: number;
-} {
-  if (Array.isArray(root)) {
-    return { providers: root };
-  }
-
-  if ('providers' in root) {
-    return {
-      providers: root.providers,
-      timeoutMs: root.timeoutMs,
-      autoTimeoutMs: root.autoTimeoutMs,
-      singleTimeoutMs: root.singleTimeoutMs
-    };
-  }
-
-  if ('sites' in root) {
-    return {
-      providers: root.sites,
-      timeoutMs: root.timeoutMs,
-      autoTimeoutMs: root.autoTimeoutMs,
-      singleTimeoutMs: root.singleTimeoutMs
-    };
-  }
-
-  return { providers: [root] };
+function getActiveCatalog(): AiModelCatalog {
+  return aiModelCatalogForTests ?? aiModelCatalog;
 }
 
-function candidatesFromProviders(
-  providers: ConfiguredProvider[],
-  rootTimeouts: { timeoutMs?: number; autoTimeoutMs?: number; singleTimeoutMs?: number } = {}
-): AiModelCandidate[] {
-  const candidates = providers.flatMap((provider, providerIndex) => {
-    const providerId = provider.id?.trim() || `site-${providerIndex + 1}`;
-    const providerAlias = provider.alias?.trim() || providerId;
-    const headers = provider.headers ?? {};
+export function getAiModelCandidates(env: NodeJS.ProcessEnv = process.env): AiModelCandidate[] {
+  const candidates = getActiveCatalog().flatMap((provider) => {
+    const apiKey = env[provider.apiKeyEnv]?.trim();
+    if (!apiKey) {
+      return [];
+    }
+
+    const baseUrl = provider.baseUrl?.trim() || (provider.baseUrlEnv ? env[provider.baseUrlEnv]?.trim() : '');
+    if (!baseUrl) {
+      return [];
+    }
+
+    const providerAlias = provider.alias?.trim() || provider.id;
+    const headers = { ...(provider.headers ?? {}) };
+
     return provider.models.map((model) => {
-      const normalizedModel = normalizeConfiguredModel(model);
+      const normalizedModel = normalizeCatalogModel(model);
       return {
-        id: `${safeModelIdSegment(providerId)}:${safeModelIdSegment(normalizedModel.id)}`,
+        id: `${safeModelIdSegment(provider.id)}:${safeModelIdSegment(normalizedModel.id)}`,
         alias: normalizedModel.alias,
         providerAlias,
         api: provider.api ?? 'openai-completions',
-        baseUrl: normalizeBaseUrl(provider.baseUrl),
-        apiKey: provider.apiKey.trim(),
+        baseUrl: normalizeBaseUrl(baseUrl),
+        apiKey,
         headers,
         model: normalizedModel.id,
         primary: normalizedModel.primary,
-        autoTimeoutMs: normalizeTimeouts(normalizedModel.autoTimeoutMs, normalizedModel.timeoutMs, provider.autoTimeoutMs, provider.timeoutMs, rootTimeouts.autoTimeoutMs, rootTimeouts.timeoutMs),
-        singleTimeoutMs: normalizeTimeouts(normalizedModel.singleTimeoutMs, normalizedModel.timeoutMs, provider.singleTimeoutMs, provider.timeoutMs, rootTimeouts.singleTimeoutMs, rootTimeouts.timeoutMs)
+        autoTimeoutMs: normalizeTimeouts(normalizedModel.autoTimeoutMs, normalizedModel.timeoutMs, provider.autoTimeoutMs, provider.timeoutMs),
+        singleTimeoutMs: normalizeTimeouts(normalizedModel.singleTimeoutMs, normalizedModel.timeoutMs, provider.singleTimeoutMs, provider.timeoutMs)
       };
     });
   });
@@ -187,43 +97,8 @@ function candidatesFromProviders(
   return sortPrimaryFirst(candidates);
 }
 
-function parseAiConfigPayload(payload: unknown): AiModelCandidate[] {
-  const root = configuredRootSchema.safeParse(payload);
-  if (!root.success) {
-    return [];
-  }
-
-  const normalized = normalizeRoot(root.data);
-  return candidatesFromProviders(normalized.providers, {
-    timeoutMs: normalized.timeoutMs,
-    autoTimeoutMs: normalized.autoTimeoutMs,
-    singleTimeoutMs: normalized.singleTimeoutMs
-  });
-}
-
-function parseRawConfigJson(raw: string): AiModelCandidate[] {
-  try {
-    return parseAiConfigPayload(JSON.parse(raw));
-  } catch {
-    return [];
-  }
-}
-
-function parseConfigFile(env: NodeJS.ProcessEnv): AiModelCandidate[] {
-  const resolvedPath = resolve(aiConfigFilePathForTests ?? DEFAULT_AI_CONFIG_FILE);
-  if (!existsSync(resolvedPath)) {
-    return [];
-  }
-
-  return parseRawConfigJson(readFileSync(resolvedPath, 'utf8'));
-}
-
-export function getAiModelCandidates(env: NodeJS.ProcessEnv = process.env): AiModelCandidate[] {
-  return parseConfigFile(env);
-}
-
-export function setAiModelConfigFilePathForTests(path: string | null) {
-  aiConfigFilePathForTests = path;
+export function setAiModelCatalogForTests(catalog: AiModelCatalog | null) {
+  aiModelCatalogForTests = catalog;
 }
 
 export function getPublicAiModelOptions(env: NodeJS.ProcessEnv = process.env): PublicAiModelOptions {
