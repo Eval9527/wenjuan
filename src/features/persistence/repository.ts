@@ -1,6 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
-import path from 'node:path';
+import { ensureSqlSchema, sql } from '@/features/persistence/sql-client';
 import type { SurveyResponseRecord, SurveyResponseValue } from '@/features/persistence/contracts';
 import type { ChoiceOption, SurveyBlock, SurveyDocument } from '@/features/survey-schema/schema';
 
@@ -27,50 +26,6 @@ export type SurveyListItem = {
   publishedAt: string | null;
   responseCount: number;
 };
-
-type StoredSurveyFile = {
-  surveyId: string;
-  title: string;
-  currentVersion: number;
-  updatedAt: string;
-  drafts: SurveyDraftRecord[];
-  published: PublishedSurveyRecord | null;
-  responses: SurveyResponseRecord[];
-};
-
-function getDataRoot() {
-  return process.env.WENJUAN_DATA_DIR ?? path.join(process.cwd(), '.data');
-}
-
-function getSurveyDir() {
-  return path.join(getDataRoot(), 'surveys');
-}
-
-function getSurveyFilePath(surveyId: string) {
-  return path.join(getSurveyDir(), `${surveyId}.json`);
-}
-
-async function ensureSurveyDir() {
-  await mkdir(getSurveyDir(), { recursive: true });
-}
-
-async function readSurveyFile(surveyId: string): Promise<StoredSurveyFile | null> {
-  try {
-    const content = await readFile(getSurveyFilePath(surveyId), 'utf8');
-    return JSON.parse(content) as StoredSurveyFile;
-  } catch (error) {
-    if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
-      return null;
-    }
-
-    throw error;
-  }
-}
-
-async function writeSurveyFile(file: StoredSurveyFile) {
-  await ensureSurveyDir();
-  await writeFile(getSurveyFilePath(file.surveyId), JSON.stringify(file, null, 2), 'utf8');
-}
 
 function createShortSurveyId() {
   return `wj-${randomUUID().replace(/-/g, '').slice(0, 8)}`;
@@ -99,88 +54,150 @@ function cloneBlock(block: SurveyBlock): SurveyBlock {
   return cloned;
 }
 
+function toIsoString(value: Date | string) {
+  return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
+}
+
 export async function saveSurveyDraft(input: {
   surveyId: string;
   version: number;
   document: SurveyDocument;
-}) {
+}): Promise<SurveyDraftRecord> {
+  await ensureSqlSchema();
+
   const savedAt = new Date().toISOString();
-  const existing = await readSurveyFile(input.surveyId);
-  const nextDraft: SurveyDraftRecord = {
+  await sql(
+    `
+      insert into wenjuan_surveys (survey_id, title, current_version, draft_document, updated_at, created_at)
+      values ($1, $2, $3, $4::jsonb, $5::timestamptz, $5::timestamptz)
+      on conflict (survey_id) do update set
+        title = excluded.title,
+        current_version = greatest(wenjuan_surveys.current_version, excluded.current_version),
+        draft_document = excluded.draft_document,
+        updated_at = excluded.updated_at
+    `,
+    [input.surveyId, input.document.title, input.version, JSON.stringify(input.document), savedAt]
+  );
+
+  return {
     surveyId: input.surveyId,
     version: input.version,
     document: input.document,
     savedAt
   };
-
-  const drafts = existing?.drafts.filter((draft) => draft.version !== input.version) ?? [];
-  drafts.push(nextDraft);
-  drafts.sort((left, right) => left.version - right.version);
-
-  await writeSurveyFile({
-    surveyId: input.surveyId,
-    title: input.document.title,
-    currentVersion: Math.max(existing?.currentVersion ?? 0, input.version),
-    updatedAt: savedAt,
-    drafts,
-    published: existing?.published ?? null,
-    responses: existing?.responses ?? []
-  });
-
-  return nextDraft;
 }
 
-export async function getLatestSurveyDraft(surveyId: string) {
-  const existing = await readSurveyFile(surveyId);
+export async function getLatestSurveyDraft(surveyId: string): Promise<SurveyDraftRecord | null> {
+  await ensureSqlSchema();
 
-  if (!existing?.drafts.length) {
+  const result = await sql<{
+    survey_id: string;
+    current_version: number;
+    draft_document: SurveyDocument;
+    updated_at: Date | string;
+  }>(
+    `
+      select survey_id, current_version, draft_document, updated_at
+      from wenjuan_surveys
+      where survey_id = $1
+      limit 1
+    `,
+    [surveyId]
+  );
+  const row = result.rows[0];
+
+  if (!row) {
     return null;
   }
 
-  return [...existing.drafts].sort((left, right) => right.version - left.version)[0] ?? null;
+  return {
+    surveyId: row.survey_id,
+    version: row.current_version,
+    document: row.draft_document,
+    savedAt: toIsoString(row.updated_at)
+  };
 }
 
-export async function getPublishedSurvey(surveyId: string) {
-  const existing = await readSurveyFile(surveyId);
-  return existing?.published ?? null;
+export async function getPublishedSurvey(surveyId: string): Promise<PublishedSurveyRecord | null> {
+  await ensureSqlSchema();
+
+  const result = await sql<{
+    survey_id: string;
+    published_version: number | null;
+    published_document: SurveyDocument | null;
+    published_at: Date | string | null;
+  }>(
+    `
+      select survey_id, published_version, published_document, published_at
+      from wenjuan_surveys
+      where survey_id = $1
+      limit 1
+    `,
+    [surveyId]
+  );
+  const row = result.rows[0];
+
+  if (!row?.published_version || !row.published_document || !row.published_at) {
+    return null;
+  }
+
+  return {
+    surveyId: row.survey_id,
+    version: row.published_version,
+    document: row.published_document,
+    publishedAt: toIsoString(row.published_at)
+  };
 }
 
-export async function publishSurveyDraft(surveyId: string) {
-  const existing = await readSurveyFile(surveyId);
-  const latestDraft = existing?.drafts.length
-    ? [...existing.drafts].sort((left, right) => right.version - left.version)[0]
-    : null;
+export async function publishSurveyDraft(surveyId: string): Promise<PublishedSurveyRecord> {
+  await ensureSqlSchema();
 
-  if (!existing || !latestDraft) {
+  const latestDraft = await getLatestSurveyDraft(surveyId);
+  if (!latestDraft) {
     throw new Error('Survey draft not found');
   }
 
   const publishedAt = new Date().toISOString();
-  const published: PublishedSurveyRecord = {
+  await sql(
+    `
+      update wenjuan_surveys
+      set title = $2,
+          current_version = greatest(current_version, $3),
+          published_version = $3,
+          published_document = $4::jsonb,
+          published_at = $5::timestamptz
+      where survey_id = $1
+    `,
+    [surveyId, latestDraft.document.title, latestDraft.version, JSON.stringify(latestDraft.document), publishedAt]
+  );
+
+  return {
     surveyId,
     version: latestDraft.version,
     document: latestDraft.document,
     publishedAt
   };
-
-  await writeSurveyFile({
-    ...existing,
-    title: latestDraft.document.title,
-    currentVersion: Math.max(existing.currentVersion, latestDraft.version),
-    updatedAt: existing.updatedAt,
-    published,
-    responses: existing.responses ?? []
-  });
-
-  return published;
 }
 
-export async function duplicateSurvey(surveyId: string) {
-  const existing = await readSurveyFile(surveyId);
-  const source = existing?.published?.document ??
-    (existing?.drafts.length ? [...existing.drafts].sort((left, right) => right.version - left.version)[0]?.document : null);
+export async function duplicateSurvey(surveyId: string): Promise<SurveyDraftRecord> {
+  await ensureSqlSchema();
 
-  if (!existing || !source) {
+  const result = await sql<{
+    draft_document: SurveyDocument;
+    published_document: SurveyDocument | null;
+  }>(
+    `
+      select draft_document, published_document
+      from wenjuan_surveys
+      where survey_id = $1
+      limit 1
+    `,
+    [surveyId]
+  );
+  const row = result.rows[0];
+  const source = row?.published_document ?? row?.draft_document ?? null;
+
+  if (!source) {
     throw new Error('Survey draft not found');
   }
 
@@ -208,59 +225,94 @@ export async function duplicateSurvey(surveyId: string) {
 export async function submitSurveyResponse(
   surveyId: string,
   answers: Record<string, SurveyResponseValue>
-) {
-  const existing = await readSurveyFile(surveyId);
+): Promise<SurveyResponseRecord> {
+  await ensureSqlSchema();
 
-  if (!existing?.published) {
+  const published = await getPublishedSurvey(surveyId);
+  if (!published) {
     throw new Error('Published survey not found');
   }
 
   const response: SurveyResponseRecord = {
     id: `resp-${randomUUID()}`,
     surveyId,
-    version: existing.published.version,
+    version: published.version,
     answers,
     submittedAt: new Date().toISOString()
   };
 
-  const responses = [...(existing.responses ?? []), response];
-
-  await writeSurveyFile({
-    ...existing,
-    responses
-  });
+  await sql(
+    `
+      insert into wenjuan_responses (response_id, survey_id, version, answers, submitted_at)
+      values ($1, $2, $3, $4::jsonb, $5::timestamptz)
+    `,
+    [response.id, response.surveyId, response.version, JSON.stringify(response.answers), response.submittedAt]
+  );
 
   return response;
 }
 
-export async function listSurveyResponses(surveyId: string) {
-  const existing = await readSurveyFile(surveyId);
-  return [...(existing?.responses ?? [])].sort((left, right) => right.submittedAt.localeCompare(left.submittedAt));
+export async function listSurveyResponses(surveyId: string): Promise<SurveyResponseRecord[]> {
+  await ensureSqlSchema();
+
+  const result = await sql<{
+    response_id: string;
+    survey_id: string;
+    version: number;
+    answers: Record<string, SurveyResponseValue>;
+    submitted_at: Date | string;
+  }>(
+    `
+      select response_id, survey_id, version, answers, submitted_at
+      from wenjuan_responses
+      where survey_id = $1
+      order by submitted_at desc
+    `,
+    [surveyId]
+  );
+
+  return result.rows.map((row) => ({
+    id: row.response_id,
+    surveyId: row.survey_id,
+    version: row.version,
+    answers: row.answers,
+    submittedAt: toIsoString(row.submitted_at)
+  }));
 }
 
 export async function listSurveyDrafts(): Promise<SurveyListItem[]> {
-  await ensureSurveyDir();
+  await ensureSqlSchema();
 
-  const entries = await readdir(getSurveyDir(), { withFileTypes: true });
-  const surveys = await Promise.all(
-    entries
-      .filter((entry) => entry.isFile() && entry.name.endsWith('.json'))
-      .map(async (entry) => {
-        const surveyId = entry.name.replace(/\.json$/, '');
-        return readSurveyFile(surveyId);
-      })
-  );
+  const result = await sql<{
+    survey_id: string;
+    title: string;
+    current_version: number;
+    updated_at: Date | string;
+    published_version: number | null;
+    published_at: Date | string | null;
+    response_count: string | number;
+  }>(`
+    select
+      surveys.survey_id,
+      surveys.title,
+      surveys.current_version,
+      surveys.updated_at,
+      surveys.published_version,
+      surveys.published_at,
+      count(responses.response_id) as response_count
+    from wenjuan_surveys surveys
+    left join wenjuan_responses responses on responses.survey_id = surveys.survey_id
+    group by surveys.survey_id, surveys.title, surveys.current_version, surveys.updated_at, surveys.published_version, surveys.published_at
+    order by surveys.updated_at desc
+  `);
 
-  return surveys
-    .filter((survey): survey is StoredSurveyFile => Boolean(survey))
-    .map((survey) => ({
-      surveyId: survey.surveyId,
-      title: survey.title,
-      currentVersion: survey.currentVersion,
-      updatedAt: survey.updatedAt,
-      publishedVersion: survey.published?.version ?? null,
-      publishedAt: survey.published?.publishedAt ?? null,
-      responseCount: survey.responses?.length ?? 0
-    }))
-    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+  return result.rows.map((row) => ({
+    surveyId: row.survey_id,
+    title: row.title,
+    currentVersion: row.current_version,
+    updatedAt: toIsoString(row.updated_at),
+    publishedVersion: row.published_version,
+    publishedAt: row.published_at ? toIsoString(row.published_at) : null,
+    responseCount: Number(row.response_count)
+  }));
 }

@@ -1,6 +1,7 @@
 import './globals.css';
 import type { Metadata } from 'next';
 import { ReactNode } from 'react';
+import { DemoModeBanner } from '@/components/demo/DemoModeBanner';
 
 export const metadata: Metadata = {
   title: 'Wenjuan',
@@ -10,7 +11,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="zh-CN">
-      <body>{children}</body>
+      <body>
+        <DemoModeBanner />
+        {children}
+      </body>
     </html>
   );
 }

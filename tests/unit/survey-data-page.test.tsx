@@ -1,24 +1,13 @@
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import path from 'node:path';
 import { render, screen, within } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
+import { useSqlTestDatabase } from '../helpers/sql-test-db';
 import SurveyDataPage from '@/app/surveys/[surveyId]/data/page';
 import { createEmptySurvey } from '@/features/survey-schema/factories';
 import { publishSurveyDraft, saveSurveyDraft, submitSurveyResponse } from '@/features/persistence/repository';
 
 describe('SurveyDataPage', () => {
-  let dataDir: string;
+  useSqlTestDatabase();
 
-  beforeEach(async () => {
-    dataDir = await mkdtemp(path.join(tmpdir(), 'wenjuan-data-page-'));
-    process.env.WENJUAN_DATA_DIR = dataDir;
-  });
-
-  afterEach(async () => {
-    delete process.env.WENJUAN_DATA_DIR;
-    await rm(dataDir, { force: true, recursive: true });
-  });
 
   it('renders visualized response data for every answerable question', async () => {
     const survey = {

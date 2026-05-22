@@ -1,8 +1,6 @@
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import path from 'node:path';
 import { render, screen } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { useSqlTestDatabase } from '../helpers/sql-test-db';
 
 const submittedCookieValues = vi.hoisted(() => new Map<string, string>());
 
@@ -20,17 +18,10 @@ import { createEmptySurvey } from '@/features/survey-schema/factories';
 import { publishSurveyDraft, saveSurveyDraft } from '@/features/persistence/repository';
 
 describe('FillSurveyPage', () => {
-  let dataDir: string;
+  useSqlTestDatabase();
 
-  beforeEach(async () => {
+  beforeEach(() => {
     submittedCookieValues.clear();
-    dataDir = await mkdtemp(path.join(tmpdir(), 'wenjuan-fill-'));
-    process.env.WENJUAN_DATA_DIR = dataDir;
-  });
-
-  afterEach(async () => {
-    delete process.env.WENJUAN_DATA_DIR;
-    await rm(dataDir, { force: true, recursive: true });
   });
 
   it('shows an unpublished message before the survey is published', async () => {

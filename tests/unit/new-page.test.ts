@@ -1,7 +1,5 @@
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { useSqlTestDatabase } from '../helpers/sql-test-db';
 import { getLatestSurveyDraft } from '@/features/persistence/repository';
 import { createSurveyFromTemplate, surveyTemplateCatalog } from '@/features/survey-schema/templates';
 
@@ -12,18 +10,14 @@ vi.mock('next/navigation', () => ({
 }));
 
 describe('NewSurveyPage', () => {
-  let dataDir: string;
+  useSqlTestDatabase();
 
-  beforeEach(async () => {
-    dataDir = await mkdtemp(path.join(tmpdir(), 'wenjuan-new-page-'));
-    process.env.WENJUAN_DATA_DIR = dataDir;
+  beforeEach(() => {
     redirectMock.mockReset();
   });
 
-  afterEach(async () => {
-    delete process.env.WENJUAN_DATA_DIR;
+  afterEach(() => {
     vi.restoreAllMocks();
-    await rm(dataDir, { force: true, recursive: true });
   });
 
   it('creates a template survey and redirects to editor', async () => {

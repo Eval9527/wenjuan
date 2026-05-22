@@ -1,7 +1,5 @@
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
+import { useSqlTestDatabase } from '../helpers/sql-test-db';
 import { createEmptySurvey } from '@/features/survey-schema/factories';
 import {
   getPublishedSurvey,
@@ -14,17 +12,8 @@ import {
 } from '@/features/persistence/repository';
 
 describe('survey repository', () => {
-  let dataDir: string;
+  useSqlTestDatabase();
 
-  beforeEach(async () => {
-    dataDir = await mkdtemp(path.join(tmpdir(), 'wenjuan-repo-'));
-    process.env.WENJUAN_DATA_DIR = dataDir;
-  });
-
-  afterEach(async () => {
-    delete process.env.WENJUAN_DATA_DIR;
-    await rm(dataDir, { force: true, recursive: true });
-  });
 
   it('persists a survey draft version', async () => {
     const document = createEmptySurvey({ id: 'demo' });
