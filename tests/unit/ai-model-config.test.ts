@@ -1,4 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import {
   getAiModelCandidates,
   getPublicAiModelOptions
@@ -63,6 +66,102 @@ describe('ai model config', () => {
       baseUrl: 'https://ai.example.test/v1',
       apiKey: 'remote-key'
     });
+  });
+
+  it('loads OpenClaw/Hermes-style multi-site JSON config files with custom headers', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'wenjuan-ai-config-'));
+    const configPath = join(dir, 'ai-models.json');
+    writeFileSync(configPath, JSON.stringify({
+      providers: [
+        {
+          id: 'local',
+          alias: '本地 Hermes',
+          api: 'openai-completions',
+          apiKey: 'local-key',
+          baseUrl: 'http://localhost:4000/v1',
+          headers: {
+            'User-Agent': 'Wenjuan Demo',
+            'X-Client': 'wenjuan'
+          },
+          models: [
+            { id: 'mimo-v2.5', alias: 'Mimo 主模型', primary: true },
+            'qwen2.5'
+          ]
+        },
+        {
+          id: 'cloud',
+          alias: '云端备用',
+          api: 'openai-completions',
+          apiKey: 'cloud-key',
+          baseUrl: 'https://ai.example.test/v1',
+          models: [
+            { id: 'deepseek-chat', alias: 'DeepSeek 备用' }
+          ]
+        }
+      ]
+    }));
+
+    const candidates = getAiModelCandidates({
+      WENJUAN_AI_CONFIG_FILE: configPath
+    } as unknown as NodeJS.ProcessEnv);
+
+    expect(candidates.map((candidate) => candidate.id)).toEqual([
+      'local:mimo-v2.5',
+      'local:qwen2.5',
+      'cloud:deepseek-chat'
+    ]);
+    expect(candidates[0]).toMatchObject({
+      alias: 'Mimo 主模型',
+      providerAlias: '本地 Hermes',
+      api: 'openai-completions',
+      apiKey: 'local-key',
+      baseUrl: 'http://localhost:4000/v1',
+      headers: {
+        'User-Agent': 'Wenjuan Demo',
+        'X-Client': 'wenjuan'
+      },
+      model: 'mimo-v2.5',
+      primary: true
+    });
+    expect(candidates[1]).toMatchObject({
+      alias: 'qwen2.5',
+      providerAlias: '本地 Hermes',
+      model: 'qwen2.5'
+    });
+    expect(candidates[2]).toMatchObject({
+      alias: 'DeepSeek 备用',
+      providerAlias: '云端备用',
+      apiKey: 'cloud-key',
+      baseUrl: 'https://ai.example.test/v1'
+    });
+  });
+
+  it('also accepts a single-site JSON config object', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'wenjuan-ai-config-'));
+    const configPath = join(dir, 'ai-models.json');
+    writeFileSync(configPath, JSON.stringify({
+      id: 'solo',
+      alias: '单站点',
+      api: 'openai-completions',
+      apiKey: 'solo-key',
+      baseUrl: 'http://localhost:4000/v1',
+      models: [{ id: 'solo-model', alias: 'Solo 模型' }]
+    }));
+
+    const publicOptions = getPublicAiModelOptions({
+      WENJUAN_AI_CONFIG_FILE: configPath
+    } as unknown as NodeJS.ProcessEnv);
+
+    expect(publicOptions).toEqual({
+      mode: 'configured',
+      defaultSelection: 'solo:solo-model',
+      showSelector: false,
+      models: [
+        { id: 'solo:solo-model', alias: 'Solo 模型', providerAlias: '单站点', primary: false }
+      ]
+    });
+    expect(JSON.stringify(publicOptions)).not.toContain('solo-key');
+    expect(JSON.stringify(publicOptions)).not.toContain('localhost:4000');
   });
 
   it('only exposes safe public model metadata to the frontend', () => {

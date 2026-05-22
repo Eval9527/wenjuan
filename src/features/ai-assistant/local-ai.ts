@@ -59,6 +59,7 @@ type BlockDraft = z.infer<typeof blockDraftSchema>;
 type LocalAiConfig = AiModelCandidate & {
   baseUrl: string;
   apiKey: string;
+  headers: Record<string, string>;
   model: string;
   timeoutMs: number;
   debug: boolean;
@@ -220,6 +221,7 @@ async function fetchLocalAiDraft({
     const response = await fetchImpl(`${config.baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
+        ...config.headers,
         'Content-Type': 'application/json',
         Authorization: `Bearer ${config.apiKey}`
       },

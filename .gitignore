@@ -7,3 +7,5 @@ pnpm-debug.log*
 .data
 
 tsconfig.tsbuildinfo
+config/ai-models.local.json
+config/ai-models.*.local.json

@@ -1,4 +1,7 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { POST } from '@/app/api/ai/changes/route';
 import type { SurveyDocument } from '@/features/survey-schema/schema';
 
@@ -8,6 +11,7 @@ const AI_ENV_KEYS = [
   'WENJUAN_AI_MODEL',
   'WENJUAN_AI_MODEL_ALIAS',
   'WENJUAN_AI_PROVIDER_ALIAS',
+  'WENJUAN_AI_CONFIG_FILE',
   'WENJUAN_AI_PROVIDERS_JSON',
   'WENJUAN_AI_TIMEOUT_MS',
   'WENJUAN_AI_DEBUG'
@@ -154,6 +158,48 @@ describe('POST /api/ai/changes', () => {
     });
     expect(payload.operations).toHaveLength(3);
     expect(payload.operations.every((operation: { type: string }) => operation.type === 'addBlock')).toBe(true);
+  });
+
+  it('loads model providers from an external JSON config file and sends custom headers', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'wenjuan-ai-route-config-'));
+    const configPath = join(dir, 'ai-models.json');
+    writeFileSync(configPath, JSON.stringify({
+      id: 'hermes',
+      alias: 'Hermes 本地',
+      api: 'openai-completions',
+      apiKey: 'file-local-key',
+      baseUrl: 'http://localhost:4000/v1',
+      headers: {
+        'User-Agent': 'Wenjuan Demo',
+        'X-Client': 'wenjuan'
+      },
+      models: [
+        { id: 'mimo-v2.5', alias: 'Mimo 主模型', primary: true }
+      ]
+    }));
+    process.env.WENJUAN_AI_CONFIG_FILE = configPath;
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(buildCompletion({
+      summary: 'AI 生成问卷',
+      title: 'AI 配置文件问卷',
+      blocks: [{ type: 'title', label: 'AI 配置文件问卷', level: 1 }]
+    }));
+
+    const response = await POST(createRequest('生成一个问卷'));
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.modelAlias).toBe('Mimo 主模型');
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:4000/v1/chat/completions',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: 'Bearer file-local-key',
+          'Content-Type': 'application/json',
+          'User-Agent': 'Wenjuan Demo',
+          'X-Client': 'wenjuan'
+        })
+      })
+    );
   });
 
 

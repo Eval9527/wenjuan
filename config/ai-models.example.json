@@ -1,0 +1,38 @@
+{
+  "providers": [
+    {
+      "id": "local",
+      "alias": "本地服务",
+      "api": "openai-completions",
+      "apiKey": "<replace-with-your-key>",
+      "baseUrl": "http://localhost:4000/v1",
+      "headers": {
+        "User-Agent": "Wenjuan Demo"
+      },
+      "models": [
+        {
+          "id": "mimo-v2.5",
+          "alias": "Mimo 主模型",
+          "primary": true
+        },
+        {
+          "id": "qwen2.5",
+          "alias": "Qwen 备用"
+        }
+      ]
+    },
+    {
+      "id": "backup",
+      "alias": "备用服务",
+      "api": "openai-completions",
+      "apiKey": "<replace-with-your-backup-key>",
+      "baseUrl": "https://ai.example.test/v1",
+      "models": [
+        {
+          "id": "deepseek-chat",
+          "alias": "DeepSeek 备用"
+        }
+      ]
+    }
+  ]
+}
