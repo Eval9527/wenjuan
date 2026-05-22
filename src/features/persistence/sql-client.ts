@@ -11,6 +11,7 @@ let pool: Queryable | null = null;
 let poolUrl: string | null = null;
 let testPool: Queryable | null = null;
 let schemaReady: Promise<void> | null = null;
+const MAX_TRANSIENT_QUERY_ATTEMPTS = 2;
 
 function normalizeDatabaseUrl(databaseUrl: string) {
   const url = new URL(databaseUrl);
@@ -64,7 +65,25 @@ function getPool() {
 }
 
 export async function sql<T extends QueryResultRow = QueryResultRow>(text: string, params: unknown[] = []) {
-  return getPool().query<T>(text, params);
+  for (let attempt = 1; attempt <= MAX_TRANSIENT_QUERY_ATTEMPTS; attempt += 1) {
+    try {
+      return await getPool().query<T>(text, params);
+    } catch (error) {
+      if (attempt >= MAX_TRANSIENT_QUERY_ATTEMPTS || !isTransientConnectionError(error)) {
+        throw error;
+      }
+
+      if (!testPool && pool) {
+        const stalePool = pool;
+        pool = null;
+        poolUrl = null;
+        schemaReady = null;
+        await stalePool.end?.().catch(() => undefined);
+      }
+    }
+  }
+
+  throw new Error('SQL query failed');
 }
 
 export async function ensureSqlSchema() {
@@ -113,7 +132,20 @@ export async function ensureSqlSchema() {
     `);
   })();
 
-  await schemaReady;
+  try {
+    await schemaReady;
+  } catch (error) {
+    schemaReady = null;
+    throw error;
+  }
+}
+
+function isTransientConnectionError(error: unknown) {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  return /connection terminated unexpectedly|connection terminated|server closed the connection unexpectedly|connection reset|econnreset|terminating connection/i.test(error.message);
 }
 
 export function setSqlPoolForTests(nextPool: Queryable) {
