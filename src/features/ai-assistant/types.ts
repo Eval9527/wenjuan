@@ -29,7 +29,11 @@ export const aiDraftChangeSetSchema = z.object({
   userIntent: z.string().min(1),
   summary: z.string().min(1),
   operations: z.array(changeOperationSchema).min(1),
-  nextDocument: surveyDocumentSchema
+  nextDocument: surveyDocumentSchema,
+  source: z.enum(['ai', 'builtin']).optional(),
+  notice: z.string().min(1).optional(),
+  modelAlias: z.string().min(1).optional(),
+  timedOutModels: z.array(z.string().min(1)).optional()
 });
 
 export type ChangeOperation = z.infer<typeof changeOperationSchema>;

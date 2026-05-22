@@ -79,8 +79,59 @@ function GlobalSurveySettings({ readOnly = false }: { readOnly?: boolean }) {
 const AI_GENERATION_ERROR_MESSAGE = 'AI 暂时没能生成修改建议，请稍后重试或换个说法。';
 const AI_GENERATION_ABORTED_MESSAGE = '已中断生成，当前问卷没有变化。';
 
+type AiModelOption = {
+  id: string;
+  alias: string;
+  providerAlias: string;
+  primary: boolean;
+};
+
+type AiModelOptionsResponse = {
+  mode: 'configured' | 'builtin-only';
+  defaultSelection: string;
+  showSelector: boolean;
+  models: AiModelOption[];
+};
+
+class AiRequestError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'AiRequestError';
+  }
+}
+
 function isAbortError(error: unknown) {
   return error instanceof DOMException && error.name === 'AbortError';
+}
+
+function isAiModelOptionsResponse(value: unknown): value is AiModelOptionsResponse {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const payload = value as Partial<AiModelOptionsResponse>;
+  return (payload.mode === 'configured' || payload.mode === 'builtin-only') &&
+    typeof payload.defaultSelection === 'string' &&
+    typeof payload.showSelector === 'boolean' &&
+    Array.isArray(payload.models);
+}
+
+function isSafeUserFacingAiError(message: string) {
+  return !/(本地\s*AI|openai-compatible|localhost|127\.0\.0\.1|https?:\/\/|api[_ -]?key|stack|trace)/i.test(message);
+}
+
+async function readAiErrorMessage(response: Response) {
+  try {
+    const payload = await response.json();
+    const message = typeof payload?.error === 'string' ? payload.error.trim() : '';
+    if (message && isSafeUserFacingAiError(message)) {
+      return message;
+    }
+  } catch {
+    // Keep the generic message below.
+  }
+
+  return AI_GENERATION_ERROR_MESSAGE;
 }
 
 function clearEditorUrlParams(paramNames: string[]) {
@@ -124,13 +175,46 @@ export function AiAssistantPanel({
   const [prompt, setPrompt] = useState(normalizedInitialPrompt);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [modelOptions, setModelOptions] = useState<AiModelOptionsResponse | null>(null);
+  const [modelSelection, setModelSelection] = useState('auto');
   const abortControllerRef = useRef<AbortController | null>(null);
   const hasAutoRequestedRef = useRef(false);
   const interactionDisabled = readOnly || isLoading || isGenerating;
+  const showModelSelector = Boolean(modelOptions?.showSelector && modelOptions.models.length >= 2);
 
   useEffect(() => {
     return () => {
       abortControllerRef.current?.abort();
+    };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadModelOptions() {
+      try {
+        const response = await fetch('/api/ai/models');
+        if (!response.ok) {
+          return;
+        }
+
+        const payload = await response.json();
+        if (!mounted || !isAiModelOptionsResponse(payload)) {
+          return;
+        }
+
+        setModelOptions(payload);
+        setModelSelection(payload.defaultSelection || 'auto');
+      } catch {
+        // The selector is progressive enhancement; generation can still proceed.
+      }
+    }
+
+    void loadModelOptions();
+
+    return () => {
+      mounted = false;
     };
   }, []);
 
@@ -171,6 +255,7 @@ export function AiAssistantPanel({
     setIsLoading(true);
     onGenerationStateChange?.(true);
     setError(null);
+    setNotice(null);
 
     try {
       const response = await fetch('/api/ai/changes', {
@@ -178,15 +263,16 @@ export function AiAssistantPanel({
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ prompt: nextPrompt, currentDocument: survey }),
+        body: JSON.stringify({ prompt: nextPrompt, currentDocument: survey, modelSelection }),
         signal: abortController.signal
       });
 
       if (!response.ok) {
-        throw new Error('AI change request failed');
+        throw new AiRequestError(await readAiErrorMessage(response));
       }
 
       const payload = aiDraftChangeSetSchema.parse(await response.json());
+      setNotice(payload.notice ?? null);
       if (survey.blocks.length === 0) {
         applyChangeSet(payload);
       } else {
@@ -197,7 +283,13 @@ export function AiAssistantPanel({
         clearEditorUrlParams(['aiPrompt']);
       }
     } catch (requestError) {
-      setError(isAbortError(requestError) ? AI_GENERATION_ABORTED_MESSAGE : AI_GENERATION_ERROR_MESSAGE);
+      setError(
+        isAbortError(requestError)
+          ? AI_GENERATION_ABORTED_MESSAGE
+          : requestError instanceof AiRequestError
+            ? requestError.message
+            : AI_GENERATION_ERROR_MESSAGE
+      );
     } finally {
       if (abortControllerRef.current === abortController) {
         abortControllerRef.current = null;
@@ -265,6 +357,29 @@ export function AiAssistantPanel({
         />
       </label>
 
+      {showModelSelector ? (
+        <label className="ui-field ai-model-selector">
+          <span className="ui-field-label">AI 模型</span>
+          <select
+            aria-label="AI 模型"
+            className="ui-select"
+            disabled={interactionDisabled}
+            onChange={(event) => setModelSelection(event.target.value)}
+            value={modelSelection}
+          >
+            <option value="auto">auto 模式</option>
+            {modelOptions?.models.map((model) => (
+              <option key={model.id} value={model.id}>
+                {model.alias} · {model.providerAlias}
+              </option>
+            ))}
+          </select>
+          <span className="text-xs leading-5 text-[#667085]">
+            auto 模式会优先使用主模型，超时后自动切换备用模型。
+          </span>
+        </label>
+      ) : null}
+
       <button
         aria-label={isLoading ? '生成中' : '生成修改建议'}
         className={[
@@ -298,6 +413,11 @@ export function AiAssistantPanel({
       ) : null}
 
       {error ? <p className="m-0 text-sm text-[#b42318]">{error}</p> : null}
+      {notice ? (
+        <div className="ui-panel-soft border-[#bfdbfe] bg-[#eff6ff] p-3 text-sm leading-6 text-[#1d4ed8]">
+          {notice}
+        </div>
+      ) : null}
       {pendingChangeSet ? (
         <div
           aria-labelledby="ai-change-preview-title"

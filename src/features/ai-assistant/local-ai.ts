@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { aiDraftChangeSetSchema, type AiDraftChangeSet, type ChangeOperation } from './types';
+import { getAiModelCandidates, type AiModelCandidate } from './model-config';
 import {
   surveyDocumentSchema,
   type ChoiceOption,
@@ -10,9 +11,6 @@ import {
 } from '@/features/survey-schema/schema';
 
 const AI_CONFIG_KEYS = {
-  baseUrl: 'WENJUAN_AI_BASE_URL',
-  apiKey: 'WENJUAN_AI_API_KEY',
-  model: 'WENJUAN_AI_MODEL',
   timeoutMs: 'WENJUAN_AI_TIMEOUT_MS'
 } as const;
 
@@ -58,7 +56,7 @@ const openAiChatCompletionSchema = z.object({
 type AiSurveyDraft = z.infer<typeof aiSurveyDraftSchema>;
 type BlockDraft = z.infer<typeof blockDraftSchema>;
 
-type LocalAiConfig = {
+type LocalAiConfig = AiModelCandidate & {
   baseUrl: string;
   apiKey: string;
   model: string;
@@ -66,8 +64,10 @@ type LocalAiConfig = {
   debug: boolean;
 };
 
+export type LocalAiErrorCode = 'aborted' | 'timeout' | 'invalid-response' | 'upstream-error' | 'unknown';
+
 export class LocalAiError extends Error {
-  constructor(message: string) {
+  constructor(message: string, public code: LocalAiErrorCode = 'invalid-response') {
     super(message);
     this.name = 'LocalAiError';
   }
@@ -106,20 +106,17 @@ function logAiDebug(config: LocalAiConfig, payload: Record<string, unknown>) {
 }
 
 export function getLocalAiConfig(env: NodeJS.ProcessEnv = process.env): LocalAiConfig | null {
-  const baseUrl = env[AI_CONFIG_KEYS.baseUrl]?.trim();
-  const apiKey = env[AI_CONFIG_KEYS.apiKey]?.trim();
-  const model = env[AI_CONFIG_KEYS.model]?.trim();
+  const candidate = getAiModelCandidates(env)[0];
 
-  if (!baseUrl || !apiKey || !model) {
+  if (!candidate) {
     return null;
   }
 
   const parsedTimeout = Number(env[AI_CONFIG_KEYS.timeoutMs]);
 
   return {
-    baseUrl: normalizeBaseUrl(baseUrl),
-    apiKey,
-    model,
+    ...candidate,
+    baseUrl: normalizeBaseUrl(candidate.baseUrl),
     timeoutMs: Number.isFinite(parsedTimeout) && parsedTimeout > 0 ? parsedTimeout : 45_000,
     debug: isDebugEnabled(env.WENJUAN_AI_DEBUG)
   };
@@ -240,7 +237,7 @@ async function fetchLocalAiDraft({
 
     if (!response.ok) {
       const detail = await response.text().catch(() => '');
-      throw new LocalAiError(`本地 AI 服务返回 ${response.status}${detail ? `：${detail.slice(0, 200)}` : ''}`);
+      throw new LocalAiError(`本地 AI 服务返回 ${response.status}${detail ? `：${detail.slice(0, 200)}` : ''}`, 'upstream-error');
     }
 
     const completion = openAiChatCompletionSchema.safeParse(await response.json());
@@ -266,10 +263,10 @@ async function fetchLocalAiDraft({
     }
 
     if (error instanceof DOMException && error.name === 'AbortError') {
-      throw new LocalAiError(signal?.aborted ? '本地 AI 请求已中断' : '本地 AI 请求超时');
+      throw new LocalAiError(signal?.aborted ? '本地 AI 请求已中断' : '本地 AI 请求超时', signal?.aborted ? 'aborted' : 'timeout');
     }
 
-    throw new LocalAiError(error instanceof Error ? error.message : '本地 AI 调用失败');
+    throw new LocalAiError(error instanceof Error ? error.message : '本地 AI 调用失败', 'unknown');
   } finally {
     clearTimeout(timeout);
     signal?.removeEventListener('abort', abortUpstream);
@@ -540,16 +537,27 @@ export async function buildLocalAiChangeSet({
   prompt,
   currentDocument,
   env = process.env,
+  candidate,
+  timeoutMs,
   fetchImpl = fetch,
   signal
 }: {
   prompt: string;
   currentDocument: SurveyDocument;
   env?: NodeJS.ProcessEnv;
+  candidate?: AiModelCandidate;
+  timeoutMs?: number;
   fetchImpl?: typeof fetch;
   signal?: AbortSignal;
 }) {
-  const config = getLocalAiConfig(env);
+  const config = candidate
+    ? {
+      ...candidate,
+      baseUrl: normalizeBaseUrl(candidate.baseUrl),
+      timeoutMs: timeoutMs ?? 45_000,
+      debug: isDebugEnabled(env.WENJUAN_AI_DEBUG)
+    }
+    : getLocalAiConfig(env);
   if (!config) {
     return null;
   }

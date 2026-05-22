@@ -617,6 +617,106 @@ describe('EditorShell', () => {
     });
   });
 
+  it('shows the AI model selector only when multiple models are configured and posts the chosen model', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+      if (input === '/api/ai/models') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            mode: 'configured',
+            defaultSelection: 'auto',
+            showSelector: true,
+            models: [
+              { id: 'local:main', alias: '主模型', providerAlias: '本地服务', primary: true },
+              { id: 'local:backup', alias: '备用模型', providerAlias: '本地服务', primary: false }
+            ]
+          })
+        } as Response);
+      }
+
+      return Promise.resolve({
+        ok: true,
+        json: async () => createAiPreviewPayload()
+      } as Response);
+    });
+
+    render(<EditorShell surveyId="demo" />);
+
+    const selector = await screen.findByLabelText('AI 模型');
+    expect(selector).toHaveValue('auto');
+    expect(screen.getByRole('option', { name: 'auto 模式' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: '主模型 · 本地服务' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: '备用模型 · 本地服务' })).toBeInTheDocument();
+
+    fireEvent.change(selector, { target: { value: 'local:backup' } });
+    fireEvent.change(screen.getByLabelText('AI prompt'), {
+      target: { value: '生成一个活动报名问卷' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: '生成修改建议' }));
+
+    await screen.findByLabelText('姓名');
+    const postCall = fetchMock.mock.calls.find((call) => call[0] === '/api/ai/changes');
+    expect(JSON.parse(String(postCall?.[1]?.body))).toMatchObject({
+      prompt: '生成一个活动报名问卷',
+      modelSelection: 'local:backup'
+    });
+  });
+
+  it('hides the AI model selector when only one model is configured', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        mode: 'configured',
+        defaultSelection: 'legacy:mimo-v2.5',
+        showSelector: false,
+        models: [
+          { id: 'legacy:mimo-v2.5', alias: 'Mimo v2.5', providerAlias: '本地服务', primary: true }
+        ]
+      })
+    } as Response);
+
+    render(<EditorShell surveyId="demo" />);
+
+    await waitFor(() => {
+      expect(screen.queryByLabelText('AI 模型')).not.toBeInTheDocument();
+    });
+  });
+
+  it('shows builtin generator notices returned by the AI changes endpoint', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+      if (input === '/api/ai/models') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            mode: 'builtin-only',
+            defaultSelection: 'auto',
+            showSelector: false,
+            models: []
+          })
+        } as Response);
+      }
+
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({
+          ...createAiPreviewPayload(),
+          source: 'builtin',
+          notice: '当前未配置 AI 模型，这是内置生成器生成的。'
+        })
+      } as Response);
+    });
+
+    render(<EditorShell surveyId="demo" initialSurvey={createEditorSurveyWithOneBlock()} />);
+
+    fireEvent.change(screen.getByLabelText('AI prompt'), {
+      target: { value: '生成一个活动报名问卷' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: '生成修改建议' }));
+
+    expect(await screen.findByText('当前未配置 AI 模型，这是内置生成器生成的。')).toBeInTheDocument();
+    expect(await screen.findByText('新增 1 个题目')).toBeInTheDocument();
+  });
+
   it('applies ai generation directly when the current survey is empty', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,
@@ -696,7 +796,7 @@ describe('EditorShell', () => {
         body: expect.stringContaining('打工人睡眠质量')
       })
     );
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls.filter((call) => call[0] === '/api/ai/changes')).toHaveLength(1);
   });
 
   it('removes the quick template id from the editor url after the template is loaded', async () => {
@@ -800,7 +900,7 @@ describe('EditorShell', () => {
     expect(screen.getByText('单选 · 你对产品满意吗？')).toBeInTheDocument();
     expect(screen.queryByText('addBlock · title')).not.toBeInTheDocument();
     expect(screen.queryByText('addBlock · singleChoice')).not.toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls.filter((call) => call[0] === '/api/ai/changes')).toHaveLength(1);
 
     fireEvent.click(screen.getByRole('button', { name: '应用修改' }));
 

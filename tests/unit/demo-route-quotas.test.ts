@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useSqlTestDatabase } from '../helpers/sql-test-db';
 import { POST as postAiChanges } from '@/app/api/ai/changes/route';
 import { POST as postSurvey } from '@/app/api/surveys/route';
@@ -14,7 +14,10 @@ const DEMO_ENV_KEYS = [
   'WENJUAN_DEMO_AI_DAILY_LIMIT_PER_IP',
   'WENJUAN_DEMO_SUBMIT_HOURLY_LIMIT_PER_IP',
   'WENJUAN_DEMO_MAX_SURVEYS_PER_VISITOR',
-  'WENJUAN_DEMO_MAX_RESPONSES_PER_SURVEY'
+  'WENJUAN_DEMO_MAX_RESPONSES_PER_SURVEY',
+  'WENJUAN_AI_BASE_URL',
+  'WENJUAN_AI_API_KEY',
+  'WENJUAN_AI_MODEL'
 ] as const;
 
 function createDocument(): SurveyDocument {
@@ -49,13 +52,33 @@ describe('demo mode route quotas', () => {
   });
 
   afterEach(() => {
+    vi.restoreAllMocks();
     for (const key of DEMO_ENV_KEYS) {
       delete process.env[key];
     }
   });
 
-  it('limits AI changes per IP per day and returns a visitor cookie', async () => {
+  it('uses the builtin generator after the AI quota is exceeded and returns a visitor cookie', async () => {
     process.env.WENJUAN_DEMO_AI_DAILY_LIMIT_PER_IP = '1';
+    process.env.WENJUAN_AI_BASE_URL = 'http://localhost:4000/v1';
+    process.env.WENJUAN_AI_API_KEY = 'test-local-key';
+    process.env.WENJUAN_AI_MODEL = 'mimo-v2.5';
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                summary: 'AI 生成问卷',
+                title: 'AI 生成问卷',
+                blocks: [{ type: 'title', label: 'AI 生成问卷', level: 1 }]
+              })
+            }
+          }
+        ]
+      })
+    } as Response);
 
     const first = await postAiChanges(new Request('http://localhost/api/ai/changes', {
       method: 'POST',
@@ -66,6 +89,7 @@ describe('demo mode route quotas', () => {
 
     expect(first.status).toBe(200);
     expect(cookie).toContain('wenjuan_demo_visitor=');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
 
     const second = await postAiChanges(new Request('http://localhost/api/ai/changes', {
       method: 'POST',
@@ -74,8 +98,10 @@ describe('demo mode route quotas', () => {
     }));
     const payload = await second.json();
 
-    expect(second.status).toBe(429);
-    expect(payload.error).toBe('演示站今日 AI 额度已用完，请明天再试，或克隆项目本地配置自己的模型。');
+    expect(second.status).toBe(200);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(payload.source).toBe('builtin');
+    expect(payload.notice).toBe('AI 使用超过了演示站限制，这是内置生成器生成的。');
   });
 
   it('limits survey creation per signed visitor', async () => {
