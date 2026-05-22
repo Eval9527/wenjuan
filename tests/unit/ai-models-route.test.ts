@@ -1,37 +1,25 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { GET } from '@/app/api/ai/models/route';
+import { setAiModelConfigFilePathForTests } from '@/features/ai-assistant/model-config';
 
-const AI_ENV_KEYS = [
-  'WENJUAN_AI_BASE_URL',
-  'WENJUAN_AI_API_KEY',
-  'WENJUAN_AI_MODEL',
-  'WENJUAN_AI_MODEL_ALIAS',
-  'WENJUAN_AI_PROVIDER_ALIAS',
-  'WENJUAN_AI_PROVIDERS_JSON'
-] as const;
+afterEach(() => {
+  setAiModelConfigFilePathForTests(null);
+});
 
-let originalEnv: Partial<Record<(typeof AI_ENV_KEYS)[number], string>>;
+function writeAiConfig(payload: unknown) {
+  const dir = mkdtempSync(join(tmpdir(), 'wenjuan-ai-models-route-'));
+  const configPath = join(dir, 'ai-models.local.json');
+  writeFileSync(configPath, JSON.stringify(payload));
+  setAiModelConfigFilePathForTests(configPath);
+}
 
 describe('GET /api/ai/models', () => {
-  beforeEach(() => {
-    originalEnv = {};
-    for (const key of AI_ENV_KEYS) {
-      originalEnv[key] = process.env[key];
-      delete process.env[key];
-    }
-  });
+  it('returns builtin-only metadata when the local AI config file is missing', async () => {
+    setAiModelConfigFilePathForTests(join(tmpdir(), 'missing-ai-models.local.json'));
 
-  afterEach(() => {
-    for (const key of AI_ENV_KEYS) {
-      if (originalEnv[key] === undefined) {
-        delete process.env[key];
-      } else {
-        process.env[key] = originalEnv[key];
-      }
-    }
-  });
-
-  it('returns builtin-only metadata when no AI model is configured', async () => {
     const response = await GET();
     const payload = await response.json();
 
@@ -45,18 +33,20 @@ describe('GET /api/ai/models', () => {
   });
 
   it('returns safe multi-model metadata without leaking keys or base URLs', async () => {
-    process.env.WENJUAN_AI_PROVIDERS_JSON = JSON.stringify([
-      {
-        id: 'local',
-        alias: '本地服务',
-        baseUrl: 'http://localhost:4000/v1',
-        apiKey: 'secret-key',
-        models: [
-          { id: 'main', alias: '主模型', primary: true },
-          { id: 'backup', alias: '备用模型' }
-        ]
-      }
-    ]);
+    writeAiConfig({
+      providers: [
+        {
+          id: 'local',
+          alias: '本地服务',
+          baseUrl: 'http://localhost:4000/v1',
+          apiKey: 'secret-key',
+          models: [
+            { id: 'main', alias: '主模型', primary: true },
+            { id: 'backup', alias: '备用模型' }
+          ]
+        }
+      ]
+    });
 
     const response = await GET();
     const payload = await response.json();

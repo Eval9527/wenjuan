@@ -3,17 +3,10 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { POST } from '@/app/api/ai/changes/route';
+import { setAiModelConfigFilePathForTests } from '@/features/ai-assistant/model-config';
 import type { SurveyDocument } from '@/features/survey-schema/schema';
 
 const AI_ENV_KEYS = [
-  'WENJUAN_AI_BASE_URL',
-  'WENJUAN_AI_API_KEY',
-  'WENJUAN_AI_MODEL',
-  'WENJUAN_AI_MODEL_ALIAS',
-  'WENJUAN_AI_PROVIDER_ALIAS',
-  'WENJUAN_AI_CONFIG_FILE',
-  'WENJUAN_AI_PROVIDERS_JSON',
-  'WENJUAN_AI_TIMEOUT_MS',
   'WENJUAN_AI_DEBUG'
 ] as const;
 let originalEnv: Partial<Record<(typeof AI_ENV_KEYS)[number], string>>;
@@ -48,10 +41,23 @@ function createRequestWithModelSelection(prompt: string, modelSelection: string,
   });
 }
 
-function setLocalAiEnv() {
-  process.env.WENJUAN_AI_BASE_URL = 'http://localhost:4000/v1';
-  process.env.WENJUAN_AI_API_KEY = 'test-local-key';
-  process.env.WENJUAN_AI_MODEL = 'mimo-v2.5';
+function writeAiConfig(payload: unknown) {
+  const dir = mkdtempSync(join(tmpdir(), 'wenjuan-ai-route-config-'));
+  const configPath = join(dir, 'ai-models.local.json');
+  writeFileSync(configPath, JSON.stringify(payload));
+  setAiModelConfigFilePathForTests(configPath);
+  return configPath;
+}
+
+function setLocalAiConfig() {
+  writeAiConfig({
+    id: 'local',
+    alias: '本地服务',
+    api: 'openai-completions',
+    baseUrl: 'http://localhost:4000/v1',
+    apiKey: 'test-local-key',
+    models: [{ id: 'mimo-v2.5', alias: 'mimo-v2.5', primary: true }]
+  });
 }
 
 function buildCompletion(content: unknown) {
@@ -71,6 +77,7 @@ function buildCompletion(content: unknown) {
 
 describe('POST /api/ai/changes', () => {
   beforeEach(() => {
+    setAiModelConfigFilePathForTests(join(tmpdir(), 'missing-ai-models.local.json'));
     originalEnv = {};
     for (const key of AI_ENV_KEYS) {
       originalEnv[key] = process.env[key];
@@ -87,11 +94,12 @@ describe('POST /api/ai/changes', () => {
         process.env[key] = originalEnv[key];
       }
     }
+    setAiModelConfigFilePathForTests(null);
     vi.restoreAllMocks();
   });
 
   it('calls the configured local OpenAI-compatible model and converts its JSON draft into a preview changeset', async () => {
-    setLocalAiEnv();
+    setLocalAiConfig();
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -161,9 +169,7 @@ describe('POST /api/ai/changes', () => {
   });
 
   it('loads model providers from an external JSON config file and sends custom headers', async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'wenjuan-ai-route-config-'));
-    const configPath = join(dir, 'ai-models.json');
-    writeFileSync(configPath, JSON.stringify({
+    writeAiConfig({
       id: 'hermes',
       alias: 'Hermes 本地',
       api: 'openai-completions',
@@ -176,8 +182,7 @@ describe('POST /api/ai/changes', () => {
       models: [
         { id: 'mimo-v2.5', alias: 'Mimo 主模型', primary: true }
       ]
-    }));
-    process.env.WENJUAN_AI_CONFIG_FILE = configPath;
+    });
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(buildCompletion({
       summary: 'AI 生成问卷',
       title: 'AI 配置文件问卷',
@@ -204,7 +209,7 @@ describe('POST /api/ai/changes', () => {
 
 
   it('adds a visible title block for generated empty surveys when the AI only returns a global title', async () => {
-    setLocalAiEnv();
+    setLocalAiConfig();
     vi.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -261,7 +266,7 @@ describe('POST /api/ai/changes', () => {
 
 
   it('writes safe development logs for local ai calls when debug logging is enabled', async () => {
-    setLocalAiEnv();
+    setLocalAiConfig();
     process.env.WENJUAN_AI_DEBUG = '1';
     const infoSpy = vi.spyOn(console, 'info').mockImplementation(() => undefined);
     vi.spyOn(globalThis, 'fetch').mockResolvedValue({
@@ -304,7 +309,7 @@ describe('POST /api/ai/changes', () => {
   });
 
   it('does not fall back to the deterministic generator when a configured local AI returns invalid JSON', async () => {
-    setLocalAiEnv();
+    setLocalAiConfig();
     vi.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -329,8 +334,8 @@ describe('POST /api/ai/changes', () => {
 
   it('uses auto mode by default, times out each model after 30s, and switches models up to three times', async () => {
     vi.useFakeTimers();
-    process.env.WENJUAN_AI_PROVIDERS_JSON = JSON.stringify([
-      {
+    writeAiConfig({
+      providers: [{
         id: 'local',
         alias: '本地服务',
         baseUrl: 'http://localhost:4000/v1',
@@ -341,8 +346,8 @@ describe('POST /api/ai/changes', () => {
           { id: 'backup-b', alias: '备用 B' },
           { id: 'backup-c', alias: '备用 C' }
         ]
-      }
-    ]);
+      }]
+    });
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation((_, init) => {
       const body = JSON.parse(String((init as RequestInit).body));
 
@@ -383,8 +388,8 @@ describe('POST /api/ai/changes', () => {
 
   it('returns an auto-mode timeout message after three model switches still time out', async () => {
     vi.useFakeTimers();
-    process.env.WENJUAN_AI_PROVIDERS_JSON = JSON.stringify([
-      {
+    writeAiConfig({
+      providers: [{
         id: 'local',
         alias: '本地服务',
         baseUrl: 'http://localhost:4000/v1',
@@ -396,8 +401,8 @@ describe('POST /api/ai/changes', () => {
           { id: 'backup-c', alias: '备用 C' },
           { id: 'backup-d', alias: '备用 D' }
         ]
-      }
-    ]);
+      }]
+    });
     vi.spyOn(globalThis, 'fetch').mockImplementation((_, init) => new Promise<Response>((_, reject) => {
       (init as RequestInit).signal?.addEventListener('abort', () => {
         reject(new DOMException('Aborted', 'AbortError'));
@@ -420,8 +425,8 @@ describe('POST /api/ai/changes', () => {
 
   it('uses a 60s timeout for an explicitly selected model and suggests auto mode on timeout', async () => {
     vi.useFakeTimers();
-    process.env.WENJUAN_AI_PROVIDERS_JSON = JSON.stringify([
-      {
+    writeAiConfig({
+      providers: [{
         id: 'local',
         alias: '本地服务',
         baseUrl: 'http://localhost:4000/v1',
@@ -430,8 +435,8 @@ describe('POST /api/ai/changes', () => {
           { id: 'main', alias: '主模型', primary: true },
           { id: 'backup', alias: '备用模型' }
         ]
-      }
-    ]);
+      }]
+    });
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation((_, init) => new Promise<Response>((_, reject) => {
       (init as RequestInit).signal?.addEventListener('abort', () => {
         reject(new DOMException('Aborted', 'AbortError'));
@@ -450,5 +455,34 @@ describe('POST /api/ai/changes', () => {
     expect(payload).toEqual({
       error: '当前模型响应超时，可以切换到 auto 模式或稍后重试。'
     });
+  });
+
+  it('uses model timeout settings from the local JSON config when provided', async () => {
+    vi.useFakeTimers();
+    writeAiConfig({
+      providers: [{
+        id: 'local',
+        alias: '本地服务',
+        baseUrl: 'http://localhost:4000/v1',
+        apiKey: 'test-local-key',
+        models: [
+          { id: 'main', alias: '主模型', primary: true },
+          { id: 'backup', alias: '备用模型', singleTimeoutMs: 5_000 }
+        ]
+      }]
+    });
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation((_, init) => new Promise<Response>((_, reject) => {
+      (init as RequestInit).signal?.addEventListener('abort', () => {
+        reject(new DOMException('Aborted', 'AbortError'));
+      });
+    }));
+
+    const responsePromise = POST(createRequestWithModelSelection('生成一个问卷', 'local:backup'));
+    await vi.advanceTimersByTimeAsync(4_999);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1);
+    const response = await responsePromise;
+
+    expect(response.status).toBe(504);
   });
 });

@@ -10,10 +10,6 @@ import {
   type SurveyDocument
 } from '@/features/survey-schema/schema';
 
-const AI_CONFIG_KEYS = {
-  timeoutMs: 'WENJUAN_AI_TIMEOUT_MS'
-} as const;
-
 const blockDraftSchema = z.object({
   id: z.string().optional(),
   existingId: z.string().optional(),
@@ -113,12 +109,10 @@ export function getLocalAiConfig(env: NodeJS.ProcessEnv = process.env): LocalAiC
     return null;
   }
 
-  const parsedTimeout = Number(env[AI_CONFIG_KEYS.timeoutMs]);
-
   return {
     ...candidate,
     baseUrl: normalizeBaseUrl(candidate.baseUrl),
-    timeoutMs: Number.isFinite(parsedTimeout) && parsedTimeout > 0 ? parsedTimeout : 45_000,
+    timeoutMs: candidate.singleTimeoutMs ?? 45_000,
     debug: isDebugEnabled(env.WENJUAN_AI_DEBUG)
   };
 }
@@ -556,7 +550,7 @@ export async function buildLocalAiChangeSet({
     ? {
       ...candidate,
       baseUrl: normalizeBaseUrl(candidate.baseUrl),
-      timeoutMs: timeoutMs ?? 45_000,
+      timeoutMs: timeoutMs ?? candidate.singleTimeoutMs ?? 45_000,
       debug: isDebugEnabled(env.WENJUAN_AI_DEBUG)
     }
     : getLocalAiConfig(env);

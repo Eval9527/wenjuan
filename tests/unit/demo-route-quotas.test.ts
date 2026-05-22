@@ -1,4 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { useSqlTestDatabase } from '../helpers/sql-test-db';
 import { POST as postAiChanges } from '@/app/api/ai/changes/route';
 import { POST as postSurvey } from '@/app/api/surveys/route';
@@ -6,6 +9,7 @@ import { POST as postResponse } from '@/app/api/surveys/[surveyId]/responses/rou
 import { createEmptySurvey } from '@/features/survey-schema/factories';
 import { publishSurveyDraft, saveSurveyDraft } from '@/features/persistence/repository';
 import type { SurveyDocument } from '@/features/survey-schema/schema';
+import { setAiModelConfigFilePathForTests } from '@/features/ai-assistant/model-config';
 
 const DEMO_ENV_KEYS = [
   'WENJUAN_DEMO_MODE',
@@ -14,11 +18,16 @@ const DEMO_ENV_KEYS = [
   'WENJUAN_DEMO_AI_DAILY_LIMIT_PER_IP',
   'WENJUAN_DEMO_SUBMIT_HOURLY_LIMIT_PER_IP',
   'WENJUAN_DEMO_MAX_SURVEYS_PER_VISITOR',
-  'WENJUAN_DEMO_MAX_RESPONSES_PER_SURVEY',
-  'WENJUAN_AI_BASE_URL',
-  'WENJUAN_AI_API_KEY',
-  'WENJUAN_AI_MODEL'
+  'WENJUAN_DEMO_MAX_RESPONSES_PER_SURVEY'
 ] as const;
+
+
+function writeAiConfig(payload: unknown) {
+  const dir = mkdtempSync(join(tmpdir(), 'wenjuan-demo-ai-config-'));
+  const configPath = join(dir, 'ai-models.local.json');
+  writeFileSync(configPath, JSON.stringify(payload));
+  setAiModelConfigFilePathForTests(configPath);
+}
 
 function createDocument(): SurveyDocument {
   return {
@@ -46,12 +55,14 @@ describe('demo mode route quotas', () => {
   useSqlTestDatabase();
 
   beforeEach(() => {
+    setAiModelConfigFilePathForTests(join(tmpdir(), 'missing-ai-models.local.json'));
     process.env.WENJUAN_DEMO_MODE = 'true';
     process.env.WENJUAN_DEMO_VISITOR_SECRET = 'visitor-secret-for-route-tests';
     process.env.WENJUAN_DEMO_IP_HASH_SECRET = 'ip-secret-for-route-tests';
   });
 
   afterEach(() => {
+    setAiModelConfigFilePathForTests(null);
     vi.restoreAllMocks();
     for (const key of DEMO_ENV_KEYS) {
       delete process.env[key];
@@ -60,9 +71,13 @@ describe('demo mode route quotas', () => {
 
   it('uses the builtin generator after the AI quota is exceeded and returns a visitor cookie', async () => {
     process.env.WENJUAN_DEMO_AI_DAILY_LIMIT_PER_IP = '1';
-    process.env.WENJUAN_AI_BASE_URL = 'http://localhost:4000/v1';
-    process.env.WENJUAN_AI_API_KEY = 'test-local-key';
-    process.env.WENJUAN_AI_MODEL = 'mimo-v2.5';
+    writeAiConfig({
+      id: 'local',
+      alias: '本地服务',
+      baseUrl: 'http://localhost:4000/v1',
+      apiKey: 'test-local-key',
+      models: [{ id: 'mimo-v2.5', alias: 'mimo-v2.5', primary: true }]
+    });
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,
       json: async () => ({

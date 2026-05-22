@@ -1,79 +1,37 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   getAiModelCandidates,
-  getPublicAiModelOptions
+  getPublicAiModelOptions,
+  setAiModelConfigFilePathForTests
 } from '@/features/ai-assistant/model-config';
 
+afterEach(() => {
+  setAiModelConfigFilePathForTests(null);
+});
+
+function writeAiConfig(payload: unknown) {
+  const dir = mkdtempSync(join(tmpdir(), 'wenjuan-ai-config-'));
+  const configPath = join(dir, 'ai-models.local.json');
+  writeFileSync(configPath, JSON.stringify(payload));
+  setAiModelConfigFilePathForTests(configPath);
+  return configPath;
+}
+
 describe('ai model config', () => {
-  it('keeps the legacy single-model env as one selectable candidate', () => {
-    const candidates = getAiModelCandidates({
-      WENJUAN_AI_BASE_URL: 'http://localhost:4000/v1/',
-      WENJUAN_AI_API_KEY: 'legacy-key',
-      WENJUAN_AI_MODEL: 'mimo-v2.5',
-      WENJUAN_AI_MODEL_ALIAS: 'Mimo 主模型',
-      WENJUAN_AI_PROVIDER_ALIAS: '本地模型'
-    } as unknown as NodeJS.ProcessEnv);
-
-    expect(candidates).toEqual([
-      expect.objectContaining({
-        id: 'legacy:mimo-v2.5',
-        alias: 'Mimo 主模型',
-        providerAlias: '本地模型',
-        baseUrl: 'http://localhost:4000/v1',
-        apiKey: 'legacy-key',
-        model: 'mimo-v2.5',
-        primary: true
-      })
-    ]);
-  });
-
-  it('expands multiple providers and models while keeping primary models first', () => {
-    const candidates = getAiModelCandidates({
-      WENJUAN_AI_PROVIDERS_JSON: JSON.stringify([
-        {
-          id: 'local',
-          alias: '本地服务',
-          baseUrl: 'http://localhost:4000/v1',
-          apiKey: 'local-key',
-          models: [
-            { id: 'backup-local', alias: '本地备用' },
-            { id: 'primary-local', alias: '本地主模型', primary: true }
-          ]
-        },
-        {
-          id: 'remote',
-          alias: '备用服务',
-          baseUrl: 'https://ai.example.test/v1/',
-          apiKey: 'remote-key',
-          models: [
-            { id: 'remote-a', alias: '远端 A' }
-          ]
-        }
-      ])
-    } as unknown as NodeJS.ProcessEnv);
-
-    expect(candidates.map((candidate) => candidate.id)).toEqual([
-      'local:primary-local',
-      'local:backup-local',
-      'remote:remote-a'
-    ]);
-    expect(candidates[2]).toMatchObject({
-      alias: '远端 A',
-      providerAlias: '备用服务',
-      baseUrl: 'https://ai.example.test/v1',
-      apiKey: 'remote-key'
-    });
-  });
-
-  it('loads OpenClaw/Hermes-style multi-site JSON config files with custom headers', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'wenjuan-ai-config-'));
-    const configPath = join(dir, 'ai-models.json');
-    writeFileSync(configPath, JSON.stringify({
+  it('loads OpenClaw/Hermes-style multi-site JSON config files with notes, custom headers, and timeouts', () => {
+    writeAiConfig({
+      _notes: [
+        'Only config/ai-models.local.json is used for AI models.',
+        'timeoutMs can be set at root, provider, or model level.'
+      ],
+      autoTimeoutMs: 31_000,
+      singleTimeoutMs: 61_000,
       providers: [
         {
+          _notes: 'A local OpenAI-compatible endpoint can expose many models.',
           id: 'local',
           alias: '本地 Hermes',
           api: 'openai-completions',
@@ -84,7 +42,7 @@ describe('ai model config', () => {
             'X-Client': 'wenjuan'
           },
           models: [
-            { id: 'mimo-v2.5', alias: 'Mimo 主模型', primary: true },
+            { id: 'mimo-v2.5', alias: 'Mimo 主模型', primary: true, autoTimeoutMs: 35_000 },
             'qwen2.5'
           ]
         },
@@ -94,16 +52,15 @@ describe('ai model config', () => {
           api: 'openai-completions',
           apiKey: 'cloud-key',
           baseUrl: 'https://ai.example.test/v1',
+          timeoutMs: 45_000,
           models: [
             { id: 'deepseek-chat', alias: 'DeepSeek 备用' }
           ]
         }
       ]
-    }));
+    });
 
-    const candidates = getAiModelCandidates({
-      WENJUAN_AI_CONFIG_FILE: configPath
-    } as unknown as NodeJS.ProcessEnv);
+    const candidates = getAiModelCandidates();
 
     expect(candidates.map((candidate) => candidate.id)).toEqual([
       'local:mimo-v2.5',
@@ -121,36 +78,38 @@ describe('ai model config', () => {
         'X-Client': 'wenjuan'
       },
       model: 'mimo-v2.5',
-      primary: true
+      primary: true,
+      autoTimeoutMs: 35_000,
+      singleTimeoutMs: 61_000
     });
     expect(candidates[1]).toMatchObject({
       alias: 'qwen2.5',
       providerAlias: '本地 Hermes',
-      model: 'qwen2.5'
+      model: 'qwen2.5',
+      autoTimeoutMs: 31_000,
+      singleTimeoutMs: 61_000
     });
     expect(candidates[2]).toMatchObject({
       alias: 'DeepSeek 备用',
       providerAlias: '云端备用',
       apiKey: 'cloud-key',
-      baseUrl: 'https://ai.example.test/v1'
+      baseUrl: 'https://ai.example.test/v1',
+      autoTimeoutMs: 45_000,
+      singleTimeoutMs: 45_000
     });
   });
 
   it('also accepts a single-site JSON config object', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'wenjuan-ai-config-'));
-    const configPath = join(dir, 'ai-models.json');
-    writeFileSync(configPath, JSON.stringify({
+    writeAiConfig({
       id: 'solo',
       alias: '单站点',
       api: 'openai-completions',
       apiKey: 'solo-key',
       baseUrl: 'http://localhost:4000/v1',
       models: [{ id: 'solo-model', alias: 'Solo 模型' }]
-    }));
+    });
 
-    const publicOptions = getPublicAiModelOptions({
-      WENJUAN_AI_CONFIG_FILE: configPath
-    } as unknown as NodeJS.ProcessEnv);
+    const publicOptions = getPublicAiModelOptions();
 
     expect(publicOptions).toEqual({
       mode: 'configured',
@@ -165,8 +124,8 @@ describe('ai model config', () => {
   });
 
   it('only exposes safe public model metadata to the frontend', () => {
-    const publicOptions = getPublicAiModelOptions({
-      WENJUAN_AI_PROVIDERS_JSON: JSON.stringify([
+    writeAiConfig({
+      providers: [
         {
           id: 'local',
           alias: '本地服务',
@@ -177,8 +136,10 @@ describe('ai model config', () => {
             { id: 'backup', alias: '备用模型' }
           ]
         }
-      ])
-    } as unknown as NodeJS.ProcessEnv);
+      ]
+    });
+
+    const publicOptions = getPublicAiModelOptions();
 
     expect(publicOptions).toEqual({
       mode: 'configured',
@@ -193,8 +154,10 @@ describe('ai model config', () => {
     expect(JSON.stringify(publicOptions)).not.toContain('localhost:4000');
   });
 
-  it('reports builtin-only mode when no model is configured', () => {
-    expect(getPublicAiModelOptions({} as NodeJS.ProcessEnv)).toEqual({
+  it('reports builtin-only mode when the local config file is missing', () => {
+    setAiModelConfigFilePathForTests(join(tmpdir(), 'missing-ai-models.local.json'));
+
+    expect(getPublicAiModelOptions()).toEqual({
       mode: 'builtin-only',
       defaultSelection: 'auto',
       showSelector: false,

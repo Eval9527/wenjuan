@@ -81,7 +81,13 @@ async function buildExplicitModelChangeSet({
   signal: AbortSignal;
 }) {
   try {
-    const changeSet = await callCandidate({ prompt, currentDocument, candidate, timeoutMs: SINGLE_MODEL_TIMEOUT_MS, signal });
+    const changeSet = await callCandidate({
+      prompt,
+      currentDocument,
+      candidate,
+      timeoutMs: candidate.singleTimeoutMs ?? SINGLE_MODEL_TIMEOUT_MS,
+      signal
+    });
     return attachAiMetadata(changeSet, candidate);
   } catch (error) {
     if (error instanceof LocalAiError && error.code === 'timeout') {
@@ -120,7 +126,7 @@ async function buildAutoModelChangeSet({
         prompt,
         currentDocument,
         candidate,
-        timeoutMs: AUTO_MODEL_TIMEOUT_MS,
+        timeoutMs: candidate.autoTimeoutMs ?? AUTO_MODEL_TIMEOUT_MS,
         signal
       });
       return attachAiMetadata(changeSet, candidate, timedOutModels);

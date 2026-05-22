@@ -2,21 +2,21 @@ import { z } from 'zod';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-const LEGACY_AI_CONFIG_KEYS = {
-  baseUrl: 'WENJUAN_AI_BASE_URL',
-  apiKey: 'WENJUAN_AI_API_KEY',
-  model: 'WENJUAN_AI_MODEL',
-  modelAlias: 'WENJUAN_AI_MODEL_ALIAS',
-  providerAlias: 'WENJUAN_AI_PROVIDER_ALIAS'
-} as const;
+const DEFAULT_AI_CONFIG_FILE = 'config/ai-models.local.json';
 
-const AI_PROVIDERS_JSON_KEY = 'WENJUAN_AI_PROVIDERS_JSON';
-const AI_CONFIG_FILE_KEYS = ['WENJUAN_AI_CONFIG_FILE', 'WENJUAN_AI_CONFIG_PATH'] as const;
+let aiConfigFilePathForTests: string | null = null;
+
+function timeoutSchema() {
+  return z.number().int().positive().optional();
+}
 
 const configuredModelObjectSchema = z.object({
   id: z.string().min(1),
   alias: z.string().min(1).optional(),
-  primary: z.boolean().optional()
+  primary: z.boolean().optional(),
+  timeoutMs: timeoutSchema(),
+  autoTimeoutMs: timeoutSchema(),
+  singleTimeoutMs: timeoutSchema()
 });
 
 const configuredModelSchema = z.union([
@@ -25,20 +25,36 @@ const configuredModelSchema = z.union([
 ]);
 
 const configuredProviderSchema = z.object({
+  _notes: z.union([z.string(), z.array(z.string())]).optional(),
   id: z.string().min(1).optional(),
   alias: z.string().min(1).optional(),
   api: z.literal('openai-completions').optional(),
   baseUrl: z.string().min(1),
   apiKey: z.string().min(1),
   headers: z.record(z.string()).optional(),
+  timeoutMs: timeoutSchema(),
+  autoTimeoutMs: timeoutSchema(),
+  singleTimeoutMs: timeoutSchema(),
   models: z.array(configuredModelSchema).min(1)
 });
 
 const configuredProvidersSchema = z.array(configuredProviderSchema).min(1);
 const configuredRootSchema = z.union([
   configuredProvidersSchema,
-  z.object({ providers: configuredProvidersSchema }),
-  z.object({ sites: configuredProvidersSchema }),
+  z.object({
+    _notes: z.union([z.string(), z.array(z.string())]).optional(),
+    timeoutMs: timeoutSchema(),
+    autoTimeoutMs: timeoutSchema(),
+    singleTimeoutMs: timeoutSchema(),
+    providers: configuredProvidersSchema
+  }),
+  z.object({
+    _notes: z.union([z.string(), z.array(z.string())]).optional(),
+    timeoutMs: timeoutSchema(),
+    autoTimeoutMs: timeoutSchema(),
+    singleTimeoutMs: timeoutSchema(),
+    sites: configuredProvidersSchema
+  }),
   configuredProviderSchema
 ]);
 
@@ -55,6 +71,8 @@ export type AiModelCandidate = {
   headers: Record<string, string>;
   model: string;
   primary: boolean;
+  autoTimeoutMs?: number;
+  singleTimeoutMs?: number;
 };
 
 export type PublicAiModelOption = {
@@ -88,34 +106,62 @@ function normalizeConfiguredModel(model: ConfiguredModel) {
     return {
       id: model,
       alias: model,
-      primary: false
+      primary: false,
+      timeoutMs: undefined,
+      autoTimeoutMs: undefined,
+      singleTimeoutMs: undefined
     };
   }
 
   return {
     id: model.id,
     alias: model.alias?.trim() || model.id,
-    primary: model.primary === true
+    primary: model.primary === true,
+    timeoutMs: model.timeoutMs,
+    autoTimeoutMs: model.autoTimeoutMs,
+    singleTimeoutMs: model.singleTimeoutMs
   };
 }
 
-function normalizeProviders(root: z.infer<typeof configuredRootSchema>): ConfiguredProvider[] {
+function normalizeTimeouts(...values: Array<number | undefined>) {
+  return values.find((value) => typeof value === 'number' && Number.isFinite(value) && value > 0);
+}
+
+function normalizeRoot(root: z.infer<typeof configuredRootSchema>): {
+  providers: ConfiguredProvider[];
+  timeoutMs?: number;
+  autoTimeoutMs?: number;
+  singleTimeoutMs?: number;
+} {
   if (Array.isArray(root)) {
-    return root;
+    return { providers: root };
   }
 
   if ('providers' in root) {
-    return root.providers;
+    return {
+      providers: root.providers,
+      timeoutMs: root.timeoutMs,
+      autoTimeoutMs: root.autoTimeoutMs,
+      singleTimeoutMs: root.singleTimeoutMs
+    };
   }
 
   if ('sites' in root) {
-    return root.sites;
+    return {
+      providers: root.sites,
+      timeoutMs: root.timeoutMs,
+      autoTimeoutMs: root.autoTimeoutMs,
+      singleTimeoutMs: root.singleTimeoutMs
+    };
   }
 
-  return [root];
+  return { providers: [root] };
 }
 
-function candidatesFromProviders(providers: ConfiguredProvider[]): AiModelCandidate[] {
+function candidatesFromProviders(
+  providers: ConfiguredProvider[],
+  rootTimeouts: { timeoutMs?: number; autoTimeoutMs?: number; singleTimeoutMs?: number } = {}
+): AiModelCandidate[] {
   const candidates = providers.flatMap((provider, providerIndex) => {
     const providerId = provider.id?.trim() || `site-${providerIndex + 1}`;
     const providerAlias = provider.alias?.trim() || providerId;
@@ -131,7 +177,9 @@ function candidatesFromProviders(providers: ConfiguredProvider[]): AiModelCandid
         apiKey: provider.apiKey.trim(),
         headers,
         model: normalizedModel.id,
-        primary: normalizedModel.primary
+        primary: normalizedModel.primary,
+        autoTimeoutMs: normalizeTimeouts(normalizedModel.autoTimeoutMs, normalizedModel.timeoutMs, provider.autoTimeoutMs, provider.timeoutMs, rootTimeouts.autoTimeoutMs, rootTimeouts.timeoutMs),
+        singleTimeoutMs: normalizeTimeouts(normalizedModel.singleTimeoutMs, normalizedModel.timeoutMs, provider.singleTimeoutMs, provider.timeoutMs, rootTimeouts.singleTimeoutMs, rootTimeouts.timeoutMs)
       };
     });
   });
@@ -145,7 +193,12 @@ function parseAiConfigPayload(payload: unknown): AiModelCandidate[] {
     return [];
   }
 
-  return candidatesFromProviders(normalizeProviders(root.data));
+  const normalized = normalizeRoot(root.data);
+  return candidatesFromProviders(normalized.providers, {
+    timeoutMs: normalized.timeoutMs,
+    autoTimeoutMs: normalized.autoTimeoutMs,
+    singleTimeoutMs: normalized.singleTimeoutMs
+  });
 }
 
 function parseRawConfigJson(raw: string): AiModelCandidate[] {
@@ -157,15 +210,7 @@ function parseRawConfigJson(raw: string): AiModelCandidate[] {
 }
 
 function parseConfigFile(env: NodeJS.ProcessEnv): AiModelCandidate[] {
-  const configPath = AI_CONFIG_FILE_KEYS
-    .map((key) => env[key]?.trim())
-    .find((value): value is string => Boolean(value));
-
-  if (!configPath) {
-    return [];
-  }
-
-  const resolvedPath = resolve(configPath);
+  const resolvedPath = resolve(aiConfigFilePathForTests ?? DEFAULT_AI_CONFIG_FILE);
   if (!existsSync(resolvedPath)) {
     return [];
   }
@@ -173,51 +218,12 @@ function parseConfigFile(env: NodeJS.ProcessEnv): AiModelCandidate[] {
   return parseRawConfigJson(readFileSync(resolvedPath, 'utf8'));
 }
 
-function parseProvidersJson(env: NodeJS.ProcessEnv): AiModelCandidate[] {
-  const raw = env[AI_PROVIDERS_JSON_KEY]?.trim();
-  if (!raw) {
-    return [];
-  }
-
-  return parseRawConfigJson(raw);
-}
-
-function parseLegacyConfig(env: NodeJS.ProcessEnv): AiModelCandidate[] {
-  const baseUrl = env[LEGACY_AI_CONFIG_KEYS.baseUrl]?.trim();
-  const apiKey = env[LEGACY_AI_CONFIG_KEYS.apiKey]?.trim();
-  const model = env[LEGACY_AI_CONFIG_KEYS.model]?.trim();
-
-  if (!baseUrl || !apiKey || !model) {
-    return [];
-  }
-
-  return [
-    {
-      id: `legacy:${safeModelIdSegment(model)}`,
-      alias: env[LEGACY_AI_CONFIG_KEYS.modelAlias]?.trim() || model,
-      providerAlias: env[LEGACY_AI_CONFIG_KEYS.providerAlias]?.trim() || '默认 AI 服务',
-      api: 'openai-completions',
-      baseUrl: normalizeBaseUrl(baseUrl),
-      apiKey,
-      headers: {},
-      model,
-      primary: true
-    }
-  ];
-}
-
 export function getAiModelCandidates(env: NodeJS.ProcessEnv = process.env): AiModelCandidate[] {
-  const fileCandidates = parseConfigFile(env);
-  if (fileCandidates.length > 0) {
-    return fileCandidates;
-  }
+  return parseConfigFile(env);
+}
 
-  const providerCandidates = parseProvidersJson(env);
-  if (providerCandidates.length > 0) {
-    return providerCandidates;
-  }
-
-  return parseLegacyConfig(env);
+export function setAiModelConfigFilePathForTests(path: string | null) {
+  aiConfigFilePathForTests = path;
 }
 
 export function getPublicAiModelOptions(env: NodeJS.ProcessEnv = process.env): PublicAiModelOptions {
