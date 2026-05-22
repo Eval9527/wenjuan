@@ -222,7 +222,7 @@ describe('POST /api/ai/changes', () => {
     expect(JSON.stringify(infoSpy.mock.calls)).not.toContain('test-local-key');
   });
 
-  it('returns a clear 502 error when configured local AI cannot produce a valid changeset', async () => {
+  it('falls back to the deterministic generator when configured local AI cannot produce a valid changeset', async () => {
     setLocalAiEnv();
     vi.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,
@@ -240,8 +240,9 @@ describe('POST /api/ai/changes', () => {
     const response = await POST(createRequest('生成一个满意度问卷'));
     const payload = await response.json();
 
-    expect(response.status).toBe(502);
-    expect(payload.error).toBe('AI 暂时没能生成修改建议，请稍后重试或换个说法。');
-    expect(payload.error).not.toContain('本地 AI');
+    expect(response.status).toBe(200);
+    expect(payload).not.toHaveProperty('error');
+    expect(payload.nextDocument.blocks.length).toBeGreaterThan(0);
+    expect(payload.operations.length).toBeGreaterThan(0);
   });
 });
