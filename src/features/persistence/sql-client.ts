@@ -1,4 +1,4 @@
-import pg, { type Pool as PgPool, type QueryResult, type QueryResultRow } from 'pg';
+import pg, { type PoolConfig, type QueryResult, type QueryResultRow } from 'pg';
 
 const { Pool } = pg;
 
@@ -12,16 +12,35 @@ let poolUrl: string | null = null;
 let testPool: Queryable | null = null;
 let schemaReady: Promise<void> | null = null;
 
-function shouldUseSsl(databaseUrl: string) {
-  return databaseUrl.includes('sslmode=require') || databaseUrl.includes('supabase.com');
+function normalizeDatabaseUrl(databaseUrl: string) {
+  const url = new URL(databaseUrl);
+  const sslMode = url.searchParams.get('sslmode');
+  const shouldUseSsl = sslMode === 'require' || databaseUrl.includes('supabase.com');
+
+  if (sslMode === 'require') {
+    url.searchParams.delete('sslmode');
+  }
+
+  const normalizedUrl = url.toString();
+
+  return {
+    connectionString: normalizedUrl.endsWith('?') ? normalizedUrl.slice(0, -1) : normalizedUrl,
+    shouldUseSsl
+  };
 }
 
-function createPool(databaseUrl: string): PgPool {
-  return new Pool({
-    connectionString: databaseUrl,
+export function buildPgPoolConfig(databaseUrl: string): PoolConfig {
+  const normalized = normalizeDatabaseUrl(databaseUrl);
+
+  return {
+    connectionString: normalized.connectionString,
     max: 5,
-    ssl: shouldUseSsl(databaseUrl) ? { rejectUnauthorized: false } : undefined
-  });
+    ssl: normalized.shouldUseSsl ? { rejectUnauthorized: false } : undefined
+  };
+}
+
+function createPool(databaseUrl: string) {
+  return new Pool(buildPgPoolConfig(databaseUrl));
 }
 
 function getPool() {
