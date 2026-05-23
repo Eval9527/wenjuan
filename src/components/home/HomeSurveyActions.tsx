@@ -13,10 +13,15 @@ export function HomeSurveyActions({
 }) {
   const [actionMessage, setActionMessage] = useState('');
   const [isDuplicating, setIsDuplicating] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const fillPath = `/f/${surveyId}`;
   const dataPath = `/surveys/${surveyId}/data`;
   const hasResponses = responseCount > 0;
-  const actionCount = published && hasResponses ? 3 : 2;
+  const actionCount = published && hasResponses ? 2 : 1;
+
+  function closeMenuLater() {
+    window.setTimeout(() => setMenuOpen(false), 140);
+  }
 
   async function handleDuplicateSurvey() {
     setIsDuplicating(true);
@@ -44,20 +49,42 @@ export function HomeSurveyActions({
     <div
       className={[
         'survey-card-actions',
-        actionCount === 3 ? 'survey-card-actions--triple' : 'survey-card-actions--double'
+        actionCount === 2 ? 'survey-card-actions--double' : 'survey-card-actions--single'
       ].join(' ')}
       data-testid="survey-card-actions"
     >
       {actionMessage ? <span className="survey-card-actions__message">{actionMessage}</span> : null}
 
-      <button
-        className="ui-btn ui-btn-secondary"
-        disabled={isDuplicating}
-        onClick={handleDuplicateSurvey}
-        type="button"
+      <div
+        className="survey-card-more"
+        onFocus={() => setMenuOpen(true)}
+        onMouseEnter={() => setMenuOpen(true)}
+        onMouseLeave={closeMenuLater}
       >
-        {isDuplicating ? '复制中...' : '复制问卷'}
-      </button>
+        <button
+          aria-expanded={menuOpen}
+          aria-haspopup="menu"
+          aria-label="更多操作"
+          className="survey-card-more__trigger"
+          onClick={() => setMenuOpen((open) => !open)}
+          type="button"
+        >
+          <span aria-hidden="true">•••</span>
+        </button>
+        {menuOpen ? (
+          <div className="survey-card-more__menu" role="menu">
+            <button
+              className="survey-card-more__item"
+              disabled={isDuplicating}
+              onClick={handleDuplicateSurvey}
+              role="menuitem"
+              type="button"
+            >
+              {isDuplicating ? '复制中...' : '复制问卷'}
+            </button>
+          </div>
+        ) : null}
+      </div>
 
       {published && hasResponses ? (
         <a className="ui-btn ui-btn-secondary" href={fillPath}>

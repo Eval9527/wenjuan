@@ -109,7 +109,7 @@ describe('SurveysPage', () => {
 
     const card = screen.getByText('客户满意度回访').closest('article');
     expect(card).not.toBeNull();
-    expect(within(card as HTMLElement).getByTestId('survey-card-actions')).toHaveClass('survey-card-actions--triple');
+    expect(within(card as HTMLElement).getByTestId('survey-card-actions')).toHaveClass('survey-card-actions--double');
     expect(within(card as HTMLElement).queryByRole('button', { name: '复制填写链接' })).not.toBeInTheDocument();
     expect(within(card as HTMLElement).getByRole('link', { name: '查看问卷数据' })).toHaveAttribute(
       'href',

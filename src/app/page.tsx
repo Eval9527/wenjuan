@@ -1,7 +1,15 @@
+import type { Metadata } from 'next';
 import { HomeSurveyActions } from '@/components/home/HomeSurveyActions';
 import { HomeQuickGenerateForm } from '@/components/home/HomeQuickGenerateForm';
 import { listSurveyDrafts, type SurveyListItem } from '@/features/persistence/repository';
 import { surveyTemplateCatalog } from '@/features/survey-schema/templates';
+
+
+export const metadata: Metadata = {
+  title: 'AI-first 问卷编辑器',
+  description: '向 AI 描述调研需求，快速生成专业问卷，并完成在线编辑、发布收集与答卷分析。',
+  alternates: { canonical: '/' }
+};
 
 function formatUpdatedAt(value: string) {
   const date = new Date(value);

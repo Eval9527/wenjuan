@@ -1,6 +1,14 @@
+import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { saveSurveyDraft } from '@/features/persistence/repository';
 import { createSurveyFromTemplate } from '@/features/survey-schema/templates';
+
+
+export const metadata: Metadata = {
+  title: '新建问卷',
+  description: '从空白问卷、内置模板或 AI 指令开始创建一份新问卷。',
+  robots: { index: false, follow: false }
+};
 
 function createSurveyId() {
   return `wj-${crypto.randomUUID().replace(/-/g, '').slice(0, 8)}`;

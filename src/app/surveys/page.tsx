@@ -1,6 +1,14 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { HomeSurveyActions } from '@/components/home/HomeSurveyActions';
 import { listSurveyDrafts, type SurveyListItem } from '@/features/persistence/repository';
+
+
+export const metadata: Metadata = {
+  title: '问卷中心',
+  description: '集中管理 Wenjuan 的草稿、已发布问卷和答卷数据，快速继续编辑、查看填写页或分析结果。',
+  alternates: { canonical: '/surveys' }
+};
 
 const SURVEYS_PAGE_SIZE = 10;
 

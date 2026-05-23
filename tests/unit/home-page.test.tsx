@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { useSqlTestDatabase } from '../helpers/sql-test-db';
 import HomePage from '@/app/page';
@@ -77,7 +77,10 @@ describe('HomePage', () => {
     expect(within(publishedCard as HTMLElement).queryByRole('link', { name: '继续编辑' })).not.toBeInTheDocument();
     expect(within(publishedCard as HTMLElement).getByRole('link', { name: '查看问卷数据' })).toHaveAttribute('href', '/surveys/demo/data');
     expect(within(publishedCard as HTMLElement).queryByRole('link', { name: '查看填写页' })).not.toBeInTheDocument();
-    expect(within(publishedCard as HTMLElement).getByRole('button', { name: '复制问卷' })).toBeInTheDocument();
+    expect(within(publishedCard as HTMLElement).getByRole('button', { name: '更多操作' })).toBeInTheDocument();
+    expect(within(publishedCard as HTMLElement).queryByRole('menuitem', { name: '复制问卷' })).not.toBeInTheDocument();
+    fireEvent.click(within(publishedCard as HTMLElement).getByRole('button', { name: '更多操作' }));
+    expect(within(publishedCard as HTMLElement).getByRole('menuitem', { name: '复制问卷' })).toBeInTheDocument();
     expect(within(publishedCard as HTMLElement).getByRole('link', { name: '填写页' })).toHaveAttribute('href', '/f/demo');
     expect(within(publishedCard as HTMLElement).queryByRole('button', { name: '复制填写链接' })).not.toBeInTheDocument();
     expect(writeText).not.toHaveBeenCalled();

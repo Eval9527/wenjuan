@@ -49,15 +49,19 @@ export function EditorTopBar({
   persistenceState,
   publishState,
   onPublish,
+  onSave,
   onBack,
-  interactionLocked = false
+  interactionLocked = false,
+  toastMessage = ''
 }: {
   surveyId: string;
   persistenceState?: EditorPersistenceState;
   publishState?: EditorPublishState;
   onPublish?: () => void;
+  onSave?: () => void;
   onBack?: () => void;
   interactionLocked?: boolean;
+  toastMessage?: string;
 }) {
   const surveyTitle = useEditorStore((state) => state.survey.title);
   const blocks = useEditorStore((state) => state.survey.blocks);
@@ -202,6 +206,15 @@ export function EditorTopBar({
 
       <div className="flex flex-1 items-center justify-end gap-3 shrink-0">
         <PreviewModeSwitch disabled={interactionLocked} />
+        <button
+          aria-label="保存问卷"
+          className="ui-btn ui-btn-secondary"
+          disabled={!onSave || isEditingDisabled}
+          onClick={onSave}
+          type="button"
+        >
+          {persistenceState?.status === 'saving' ? '保存中...' : '保存'}
+        </button>
         {publishState?.publishedVersion ? (
           <button aria-label="复制分享链接" className="ui-btn ui-btn-secondary" onClick={handleCopyShareLink} type="button">
             复制链接
@@ -217,9 +230,9 @@ export function EditorTopBar({
           {publishState?.status === 'publishing' ? '发布中...' : '发布问卷'}
         </button>
       </div>
-      {copyMessage ? (
+      {copyMessage || toastMessage ? (
         <div className="editor-toast" role="status">
-          {copyMessage}
+          {copyMessage || toastMessage}
         </div>
       ) : null}
     </header>

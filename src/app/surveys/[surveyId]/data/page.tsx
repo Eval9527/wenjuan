@@ -1,5 +1,22 @@
+import type { Metadata } from 'next';
 import { getPublishedSurvey, listSurveyResponses } from '@/features/persistence/repository';
 import { buildSurveyResponseAnalytics, type QuestionAnalytics } from '@/features/responses/analytics';
+
+
+export async function generateMetadata({
+  params
+}: {
+  params: Promise<{ surveyId: string }>;
+}): Promise<Metadata> {
+  const { surveyId } = await params;
+  const publishedSurvey = await getPublishedSurvey(surveyId);
+
+  return {
+    title: publishedSurvey ? `问卷数据：${publishedSurvey.document.title}` : '问卷数据',
+    description: '查看 Wenjuan 已发布问卷的答卷统计、选项比例和最近提交数据。',
+    robots: { index: false, follow: false }
+  };
+}
 
 function formatSubmittedAt(value: string) {
   const date = new Date(value);

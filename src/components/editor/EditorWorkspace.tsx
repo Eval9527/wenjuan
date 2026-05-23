@@ -6,7 +6,8 @@ import { createEmptySurvey } from '@/features/survey-schema/factories';
 import { surveyDocumentSchema, type SurveyDocument } from '@/features/survey-schema/schema';
 
 const AUTOSAVE_DELAY = 2500;
-const PUBLISH_SUCCESS_RETURN_DELAY = 500;
+const PUBLISH_SUCCESS_RETURN_DELAY = 1600;
+const TOAST_DURATION = 2200;
 
 function createPublishState(publishedVersion: number | null, hasUnpublishedChanges = false): EditorPublishState {
   if (!publishedVersion) {
@@ -91,11 +92,13 @@ export function EditorWorkspace({
 
   const [publishState, setPublishState] = useState<EditorPublishState>(createPublishState(null));
   const [responseCount, setResponseCount] = useState(0);
+  const [toastMessage, setToastMessage] = useState('');
   const latestSurveyRef = useRef<SurveyDocument | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const requestSequenceRef = useRef(0);
   const publishedVersionRef = useRef<number | null>(null);
   const publishReturnTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const returnToPreviousPageOrHome = useCallback(() => {
     allowHistoryBackRef.current = true;
@@ -200,8 +203,99 @@ export function EditorWorkspace({
       if (publishReturnTimerRef.current) {
         clearTimeout(publishReturnTimerRef.current);
       }
+
+      if (toastTimerRef.current) {
+        clearTimeout(toastTimerRef.current);
+      }
     };
   }, [returnToPreviousPageOrHome, surveyId]);
+
+  const showToast = useCallback((message: string) => {
+    setToastMessage(message);
+
+    if (toastTimerRef.current) {
+      clearTimeout(toastTimerRef.current);
+    }
+
+    toastTimerRef.current = setTimeout(() => setToastMessage(''), TOAST_DURATION);
+  }, []);
+
+  const saveLatestSurvey = useCallback(
+    async ({ manual = false }: { manual?: boolean } = {}) => {
+      if (publishedVersionRef.current) {
+        return null;
+      }
+
+      const survey = latestSurveyRef.current;
+      if (!survey) {
+        return null;
+      }
+
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = null;
+      }
+
+      const requestId = ++requestSequenceRef.current;
+
+      if (manual) {
+        setPersistenceState({
+          status: 'saving',
+          message: `正在保存 v${survey.meta.version}...`
+        });
+        showToast('正在保存草稿...');
+      }
+
+      try {
+        const response = await fetch(`/api/surveys/${surveyId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            document: survey
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error('Survey save failed');
+        }
+
+        const payload = await response.json();
+
+        if (requestId !== requestSequenceRef.current) {
+          return null;
+        }
+
+        setPersistenceState({
+          status: 'saved',
+          message: `已保存 v${payload.version}`
+        });
+
+        if (manual) {
+          showToast(`草稿已保存 v${payload.version}`);
+        }
+
+        return payload;
+      } catch (error) {
+        if (requestId !== requestSequenceRef.current) {
+          return null;
+        }
+
+        setPersistenceState({
+          status: 'error',
+          message: error instanceof Error ? '保存失败，请稍后重试' : '保存失败'
+        });
+
+        if (manual) {
+          showToast('保存失败，请稍后重试');
+        }
+
+        throw error;
+      }
+    },
+    [showToast, surveyId]
+  );
 
   const handleSurveyChange = useCallback(
     (survey: SurveyDocument) => {
@@ -225,48 +319,16 @@ export function EditorWorkspace({
         clearTimeout(saveTimerRef.current);
       }
 
-      saveTimerRef.current = setTimeout(async () => {
-        const requestId = ++requestSequenceRef.current;
-
-        try {
-          const response = await fetch(`/api/surveys/${surveyId}`, {
-            method: 'PUT',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              document: latestSurveyRef.current
-            })
-          });
-
-          if (!response.ok) {
-            throw new Error('Survey save failed');
-          }
-
-          const payload = await response.json();
-
-          if (requestId !== requestSequenceRef.current) {
-            return;
-          }
-
-          setPersistenceState({
-            status: 'saved',
-            message: `已保存 v${payload.version}`
-          });
-        } catch (error) {
-          if (requestId !== requestSequenceRef.current) {
-            return;
-          }
-
-          setPersistenceState({
-            status: 'error',
-            message: error instanceof Error ? '保存失败，请稍后重试' : '保存失败'
-          });
-        }
+      saveTimerRef.current = setTimeout(() => {
+        void saveLatestSurvey();
       }, AUTOSAVE_DELAY);
     },
-    [surveyId]
+    [saveLatestSurvey]
   );
+
+  const handleManualSave = useCallback(() => {
+    void saveLatestSurvey({ manual: true });
+  }, [saveLatestSurvey]);
 
   const handlePublish = useCallback(async () => {
     setPublishState((current) => ({
@@ -274,29 +336,10 @@ export function EditorWorkspace({
       status: 'publishing',
       message: '正在发布...'
     }));
+    showToast('正在发布问卷...');
 
     try {
-      if (latestSurveyRef.current) {
-        const saveResponse = await fetch(`/api/surveys/${surveyId}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            document: latestSurveyRef.current
-          })
-        });
-
-        if (!saveResponse.ok) {
-          throw new Error('Survey save before publish failed');
-        }
-
-        const savedPayload = await saveResponse.json();
-        setPersistenceState({
-          status: 'saved',
-          message: `已保存 v${savedPayload.version}`
-        });
-      }
+      await saveLatestSurvey();
 
       const response = await fetch(`/api/surveys/${surveyId}/publish`, {
         method: 'POST'
@@ -313,7 +356,11 @@ export function EditorWorkspace({
         message: '发布成功',
         publishedVersion: payload.version
       });
+      showToast('发布成功，正在返回...');
 
+      if (publishReturnTimerRef.current) {
+        clearTimeout(publishReturnTimerRef.current);
+      }
       publishReturnTimerRef.current = setTimeout(returnToPreviousPageOrHome, PUBLISH_SUCCESS_RETURN_DELAY);
     } catch (error) {
       setPublishState((current) => ({
@@ -321,8 +368,9 @@ export function EditorWorkspace({
         status: 'error',
         message: error instanceof Error ? '发布失败，请稍后重试' : '发布失败'
       }));
+      showToast('发布失败，请稍后重试');
     }
-  }, [returnToPreviousPageOrHome, surveyId]);
+  }, [returnToPreviousPageOrHome, saveLatestSurvey, showToast, surveyId]);
 
   if (isLoading || !initialSurvey) {
     return (
@@ -348,6 +396,7 @@ export function EditorWorkspace({
       initialSurvey={initialSurvey}
       onBack={returnToPreviousPageOrHome}
       onPublish={handlePublish}
+      onSave={handleManualSave}
       onSurveyChange={handleSurveyChange}
       persistenceState={persistenceState}
       publishState={publishState}
@@ -355,6 +404,7 @@ export function EditorWorkspace({
       initialAiPrompt={initialAiPrompt}
       initialTemplateKey={initialTemplateKey}
       surveyId={surveyId}
+      toastMessage={toastMessage}
     />
   );
 }

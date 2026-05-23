@@ -277,18 +277,83 @@ select:disabled {
   min-width: min(100%, 360px);
 }
 
-.survey-card-actions--double {
-  grid-template-columns: repeat(2, minmax(108px, 1fr));
+.survey-card-actions--single {
+  grid-template-columns: 40px minmax(128px, 1fr);
 }
 
-.survey-card-actions--triple {
-  grid-template-columns: repeat(3, minmax(88px, 1fr));
+.survey-card-actions--double {
+  grid-template-columns: 40px repeat(2, minmax(88px, 1fr));
 }
 
 .survey-card-actions .ui-btn {
   width: 100%;
   justify-content: center;
   white-space: nowrap;
+}
+
+.survey-card-more {
+  position: relative;
+  display: inline-flex;
+  justify-content: flex-end;
+}
+
+.survey-card-more__trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface) 84%, var(--surface-soft));
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: -2px;
+  transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease, box-shadow 160ms ease;
+}
+
+.survey-card-more__trigger:hover,
+.survey-card-more__trigger[aria-expanded='true'] {
+  border-color: #bfdbfe;
+  background: var(--primary-soft);
+  color: var(--primary-strong);
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.12);
+}
+
+.survey-card-more__menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 20;
+  min-width: 132px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.14);
+}
+
+.survey-card-more__item {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  padding: 11px 13px;
+  text-align: left;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.survey-card-more__item:hover:not(:disabled),
+.survey-card-more__item:focus-visible:not(:disabled) {
+  outline: none;
+  background: var(--surface-soft);
+}
+
+.survey-card-more__item:disabled {
+  color: var(--muted);
 }
 
 .survey-card-actions__message {

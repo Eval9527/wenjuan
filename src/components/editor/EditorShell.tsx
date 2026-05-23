@@ -72,8 +72,10 @@ export function EditorShell({
   initialAiPrompt,
   initialTemplateKey,
   onPublish,
+  onSave,
   onBack,
-  onSurveyChange
+  onSurveyChange,
+  toastMessage
 }: {
   surveyId: string;
   initialSurvey?: SurveyDocument;
@@ -82,9 +84,11 @@ export function EditorShell({
   initialAiPrompt?: string;
   initialTemplateKey?: string;
   onPublish?: () => void;
+  onSave?: () => void;
   onBack?: () => void;
   responseCount?: number;
   onSurveyChange?: (survey: SurveyDocument) => void;
+  toastMessage?: string;
 }) {
   const storeRef = useRef<ReturnType<typeof createEditorStore> | null>(null);
   const [activeTab, setActiveTab] = useState<'ai' | 'inspector'>('ai');
@@ -152,11 +156,13 @@ export function EditorShell({
       <div className="editor-shell">
         <EditorTopBar
           onPublish={onPublish}
+          onSave={onSave}
           onBack={onBack}
           persistenceState={persistenceState}
           publishState={publishState}
           interactionLocked={isAiGenerating}
           surveyId={surveyId}
+          toastMessage={toastMessage}
         />
         <div className="editor-main-area">
           <BlockPalette readOnly={isEditorInteractionLocked} lockReason={isAiGenerating ? 'ai-generating' : 'published'} />
