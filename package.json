@@ -16,7 +16,7 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "immer": "^11.1.4",
-    "next": "15.2.1",
+    "next": "15.5.18",
     "pg": "^8.21.0",
     "react": "19.0.0",
     "react-dom": "19.0.0",
@@ -38,5 +38,11 @@
     "typescript": "^5.8.2",
     "vite-tsconfig-paths": "^5.1.4",
     "vitest": "^3.0.9"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "sharp"
+    ]
   }
 }

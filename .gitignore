@@ -16,3 +16,7 @@ AGENTS.md
 GEMINI.md
 .impeccable.md
 scripts/gemini-ui.sh
+
+# Local-only planning/deployment drafts; README will be the public entrypoint later.
+PROJECT_PLAN.md
+DEPLOYMENT.md
