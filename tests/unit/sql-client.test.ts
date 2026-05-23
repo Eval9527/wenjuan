@@ -36,6 +36,23 @@ describe('sql client pool config', () => {
     expect(query.mock.calls[1][0]).toContain('create table if not exists wenjuan_surveys');
   });
 
+  it('keeps retrying repeated transient schema connection drops before succeeding', async () => {
+    const query = vi.fn()
+      .mockRejectedValueOnce(new Error('Connection terminated unexpectedly'))
+      .mockRejectedValueOnce(new Error('server closed the connection unexpectedly'))
+      .mockResolvedValue({ rows: [], rowCount: 0 });
+
+    setSqlPoolForTests({
+      query
+    });
+
+    await expect(ensureSqlSchema()).resolves.toBeUndefined();
+    expect(query).toHaveBeenCalledTimes(6);
+    expect(query.mock.calls[0][0]).toContain('create table if not exists wenjuan_surveys');
+    expect(query.mock.calls[1][0]).toContain('create table if not exists wenjuan_surveys');
+    expect(query.mock.calls[2][0]).toContain('create table if not exists wenjuan_surveys');
+  });
+
   it('allows schema preparation to retry after a failed attempt', async () => {
     const query = vi.fn()
       .mockRejectedValueOnce(new Error('syntax error'))

@@ -11,7 +11,8 @@ let pool: Queryable | null = null;
 let poolUrl: string | null = null;
 let testPool: Queryable | null = null;
 let schemaReady: Promise<void> | null = null;
-const MAX_TRANSIENT_QUERY_ATTEMPTS = 2;
+const MAX_TRANSIENT_QUERY_ATTEMPTS = 4;
+const TRANSIENT_QUERY_RETRY_DELAY_MS = 120;
 
 function normalizeDatabaseUrl(databaseUrl: string) {
   const url = new URL(databaseUrl);
@@ -42,6 +43,12 @@ export function buildPgPoolConfig(databaseUrl: string): PoolConfig {
 
 function createPool(databaseUrl: string) {
   return new Pool(buildPgPoolConfig(databaseUrl));
+}
+
+function wait(ms: number) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
 }
 
 function getPool() {
@@ -79,6 +86,10 @@ export async function sql<T extends QueryResultRow = QueryResultRow>(text: strin
         poolUrl = null;
         schemaReady = null;
         await stalePool.end?.().catch(() => undefined);
+      }
+
+      if (!testPool) {
+        await wait(TRANSIENT_QUERY_RETRY_DELAY_MS * attempt);
       }
     }
   }

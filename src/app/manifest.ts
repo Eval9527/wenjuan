@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: 'Wenjuan｜AI-first 问卷编辑器',
     short_name: 'Wenjuan',
-    description: 'AI-first survey editor demo for generating, publishing, and analyzing surveys.',
+    description: 'AI-first survey editor for generating, publishing, and analyzing surveys.',
     start_url: '/',
     display: 'standalone',
     background_color: '#f3f5f8',

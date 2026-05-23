@@ -12,7 +12,7 @@ export const metadata: Metadata = {
     default: 'Wenjuan｜AI-first 问卷编辑器',
     template: '%s｜Wenjuan'
   },
-  description: 'Wenjuan 是一个 AI-first 问卷编辑器 demo，支持自然语言生成问卷、可视化编辑、发布收集与数据分析。',
+  description: 'Wenjuan 是一个 AI-first 问卷编辑器，支持自然语言生成问卷、可视化编辑、发布收集与数据分析。',
   keywords: ['AI 问卷', '问卷编辑器', '在线问卷', 'Next.js', 'Postgres', 'Survey Builder'],
   authors: [{ name: 'Wenjuan Contributors' }],
   creator: 'Wenjuan Contributors',
@@ -25,7 +25,7 @@ export const metadata: Metadata = {
     url: '/',
     siteName: 'Wenjuan',
     title: 'Wenjuan｜AI-first 问卷编辑器',
-    description: '用 AI 快速生成、编辑、发布问卷，并在一个演示站里查看答卷数据。',
+    description: '用 AI 快速生成、编辑、发布问卷，并查看答卷数据。',
     images: [
       {
         url: '/og.svg',

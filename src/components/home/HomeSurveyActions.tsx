@@ -19,10 +19,6 @@ export function HomeSurveyActions({
   const hasResponses = responseCount > 0;
   const actionCount = published && hasResponses ? 2 : 1;
 
-  function closeMenuLater() {
-    window.setTimeout(() => setMenuOpen(false), 140);
-  }
-
   async function handleDuplicateSurvey() {
     setIsDuplicating(true);
     setActionMessage('');
@@ -55,11 +51,21 @@ export function HomeSurveyActions({
     >
       {actionMessage ? <span className="survey-card-actions__message">{actionMessage}</span> : null}
 
+      {published && hasResponses ? (
+        <a className="ui-btn ui-btn-secondary" href={fillPath}>
+          填写页
+        </a>
+      ) : null}
+
+      <a className="ui-btn ui-btn-primary" href={published ? (hasResponses ? dataPath : fillPath) : `/editor/${surveyId}`}>
+        {published ? (hasResponses ? '查看问卷数据' : '查看填写页') : '继续编辑'}
+      </a>
+
       <div
         className="survey-card-more"
         onFocus={() => setMenuOpen(true)}
         onMouseEnter={() => setMenuOpen(true)}
-        onMouseLeave={closeMenuLater}
+        onMouseLeave={() => setMenuOpen(false)}
       >
         <button
           aria-expanded={menuOpen}
@@ -85,16 +91,6 @@ export function HomeSurveyActions({
           </div>
         ) : null}
       </div>
-
-      {published && hasResponses ? (
-        <a className="ui-btn ui-btn-secondary" href={fillPath}>
-          填写页
-        </a>
-      ) : null}
-
-      <a className="ui-btn ui-btn-primary" href={published ? (hasResponses ? dataPath : fillPath) : `/editor/${surveyId}`}>
-        {published ? (hasResponses ? '查看问卷数据' : '查看填写页') : '继续编辑'}
-      </a>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { HomeSurveyActions } from '@/components/home/HomeSurveyActions';
 import { HomeQuickGenerateForm } from '@/components/home/HomeQuickGenerateForm';
+import { HomeTemplateLinks } from '@/components/home/HomeTemplateLinks';
 import { listSurveyDrafts, type SurveyListItem } from '@/features/persistence/repository';
 import { surveyTemplateCatalog } from '@/features/survey-schema/templates';
 
@@ -91,12 +92,8 @@ export default async function HomePage({
           
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3 text-sm text-[#667085]">
             <span>或者尝试：</span>
-            {surveyTemplateCatalog.map((template) => (
-              <a key={template.key} href={`/new?template=${template.key}`} className="rounded-md bg-[#f8fafc] px-3 py-1.5 transition-colors hover:bg-[#eef2f6] hover:text-[#101828]">
-                {template.title}
-              </a>
-            ))}
-            <a href="/new" className="rounded-md bg-[#f8fafc] px-3 py-1.5 transition-colors hover:bg-[#eef2f6] hover:text-[#101828]">
+            <HomeTemplateLinks templates={surveyTemplateCatalog.map(({ key, title }) => ({ key, title }))} />
+            <a href="/new" className="home-template-pill">
               空白开始
             </a>
           </div>

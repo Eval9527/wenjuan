@@ -77,7 +77,10 @@ describe('HomePage', () => {
     expect(within(publishedCard as HTMLElement).queryByRole('link', { name: '继续编辑' })).not.toBeInTheDocument();
     expect(within(publishedCard as HTMLElement).getByRole('link', { name: '查看问卷数据' })).toHaveAttribute('href', '/surveys/demo/data');
     expect(within(publishedCard as HTMLElement).queryByRole('link', { name: '查看填写页' })).not.toBeInTheDocument();
-    expect(within(publishedCard as HTMLElement).getByRole('button', { name: '更多操作' })).toBeInTheDocument();
+    const publishedActions = within(publishedCard as HTMLElement).getByTestId('survey-card-actions');
+    const orderedActions = within(publishedActions).getAllByRole('link').map((link) => link.textContent);
+    expect(orderedActions).toEqual(['填写页', '查看问卷数据']);
+    expect(within(publishedActions).getByRole('button', { name: '更多操作' })).toBeInTheDocument();
     expect(within(publishedCard as HTMLElement).queryByRole('menuitem', { name: '复制问卷' })).not.toBeInTheDocument();
     fireEvent.click(within(publishedCard as HTMLElement).getByRole('button', { name: '更多操作' }));
     expect(within(publishedCard as HTMLElement).getByRole('menuitem', { name: '复制问卷' })).toBeInTheDocument();
