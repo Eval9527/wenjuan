@@ -45,6 +45,6 @@
       "sharp"
     ]
   },
-  "description": "AI-first survey editor built with Next.js, Postgres, and typed multi-model AI configuration.",
+  "description": "AI-first low-code survey builder with drag-and-drop editing, AI changeset previews, publishing, and analytics.",
   "homepage": "https://github.com/Eval9527/wenjuan#readme"
 }

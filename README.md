@@ -2,17 +2,26 @@
 
 语言 / Language： [中文说明](#中文说明) · [English](#english)
 
+![Wenjuan showcase](public/screenshots/showcase.png)
+
 ---
 
 ## 中文说明
 
 Wenjuan 是一个基于 **Next.js 15 / React 19 / TypeScript / Tailwind CSS v4** 的 AI-first 低代码问卷编辑器 demo。它把拖拽式问卷搭建、可视化属性配置、AI 生成与变更预览、发布填写、答卷分析串成一条完整工作流。
 
-### 在线入口
+### 在线体验
 
+- Live Demo: <https://wenjuan-alpha.vercel.app>
 - 工作台：`/`
 - 问卷中心：`/surveys`
 - 项目功能展示页：`/showcase`
+
+公开 demo 只用于体验核心流程，请不要填写敏感信息；演示数据可能会定期清理。
+
+### 关于这个项目
+
+Wenjuan 是一个 AI-assisted / vibe coding 方式完成的公开 demo，目标是探索 AI 生成、低代码编辑、可预览 changeset、发布填写和答卷分析如何组成一条完整的问卷创建工作流。
 
 ### 功能亮点
 
@@ -81,6 +90,13 @@ DATABASE_URL=postgresql://USER:PASSWORD@HOST:PORT/DB_NAME?sslmode=require
 
 项目会在首次访问数据库时确保所需 SQL schema 存在。
 
+### 当前限制
+
+- 这是一个公开 demo，不是生产级 SaaS。
+- 自行部署时需要准备 Postgres-compatible 数据库。
+- 线上 AI provider 需要按模型清单自行配置环境变量。
+- 免费数据库可能存在冷启动、暂停、存储或 compute 配额限制。
+
 ### 验证命令
 
 ```bash
@@ -89,17 +105,28 @@ pnpm build
 git diff --check
 ```
 
+### 许可证
+
+MIT License. See [LICENSE](LICENSE).
+
 ---
 
 ## English
 
 Wenjuan is an AI-first low-code survey editor demo built with **Next.js 15, React 19, TypeScript, and Tailwind CSS v4**. It combines drag-and-drop survey building, visual property editing, AI generation with previewable changesets, publishing, response collection, and analytics.
 
-### Entry Points
+### Live Demo
 
+- Live Demo: <https://wenjuan-alpha.vercel.app>
 - Workspace: `/`
 - Survey center: `/surveys`
 - Visual project showcase: `/showcase`
+
+The public demo is for trying the core workflow only. Do not enter sensitive information; demo data may be cleaned up periodically.
+
+### About This Project
+
+Wenjuan is an AI-assisted / vibe coding public demo. It explores how AI generation, low-code editing, previewable changesets, publishing, and response analytics can work together in a survey builder.
 
 ### Highlights
 
@@ -168,6 +195,13 @@ Recommended setup: **Vercel + Postgres-compatible database**.
 
 The app ensures the required SQL schema on first database access.
 
+### Current Limitations
+
+- This is a public demo, not a production SaaS product.
+- Self-hosted deployments need a Postgres-compatible database.
+- Production AI providers require environment variables from the model catalog.
+- Free database plans may have cold starts, pauses, storage limits, or compute limits.
+
 ### Verification
 
 ```bash
@@ -175,3 +209,7 @@ pnpm test
 pnpm build
 git diff --check
 ```
+
+### License
+
+MIT License. See [LICENSE](LICENSE).
