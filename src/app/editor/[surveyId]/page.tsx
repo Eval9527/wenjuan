@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { EditorWorkspace } from '@/components/editor/EditorWorkspace';
+import { isDatabaseUnavailableError } from '@/features/persistence/errors';
 import { getLatestSurveyDraft } from '@/features/persistence/repository';
 
 
@@ -9,7 +10,22 @@ export async function generateMetadata({
   params: Promise<{ surveyId: string }>;
 }): Promise<Metadata> {
   const { surveyId } = await params;
-  const draft = await getLatestSurveyDraft(surveyId);
+  let draft: Awaited<ReturnType<typeof getLatestSurveyDraft>>;
+
+  try {
+    draft = await getLatestSurveyDraft(surveyId);
+  } catch (error) {
+    if (isDatabaseUnavailableError(error)) {
+      return {
+        title: '演示数据库暂时不可用',
+        description: '当前无法读取问卷数据，请稍后刷新重试。',
+        robots: { index: false, follow: false }
+      };
+    }
+
+    throw error;
+  }
+
   const title = draft?.document.title ? `编辑问卷：${draft.document.title}` : '编辑问卷';
 
   return {

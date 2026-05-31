@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import { PublishedSurveyPage } from '@/components/published/PublishedSurveyPage';
+import { DatabaseUnavailableNotice } from '@/components/system/DatabaseUnavailableNotice';
+import { isDatabaseUnavailableError } from '@/features/persistence/errors';
 import { getPublishedSurvey } from '@/features/persistence/repository';
 import { getSurveySubmissionCookieName, getSurveySubmissionCookieValue } from '@/features/responses/submission-cookie';
 
@@ -11,7 +13,21 @@ export async function generateMetadata({
   params: Promise<{ surveyId: string }>;
 }): Promise<Metadata> {
   const { surveyId } = await params;
-  const publishedSurvey = await getPublishedSurvey(surveyId);
+  let publishedSurvey: Awaited<ReturnType<typeof getPublishedSurvey>>;
+
+  try {
+    publishedSurvey = await getPublishedSurvey(surveyId);
+  } catch (error) {
+    if (isDatabaseUnavailableError(error)) {
+      return {
+        title: '演示数据库暂时不可用',
+        description: '当前无法读取问卷数据，请稍后刷新重试。',
+        robots: { index: false, follow: false }
+      };
+    }
+
+    throw error;
+  }
 
   if (!publishedSurvey) {
     return {
@@ -39,7 +55,26 @@ export default async function FillSurveyPage({
   params: Promise<{ surveyId: string }>;
 }) {
   const { surveyId } = await params;
-  const publishedSurvey = await getPublishedSurvey(surveyId);
+  let publishedSurvey: Awaited<ReturnType<typeof getPublishedSurvey>>;
+
+  try {
+    publishedSurvey = await getPublishedSurvey(surveyId);
+  } catch (error) {
+    if (isDatabaseUnavailableError(error)) {
+      return (
+        <DatabaseUnavailableNotice
+          helper=""
+          message="由于网络波动或服务维护，该问卷当前无法加载。请稍后再试或联系问卷发布者。"
+          retryHref={`/f/${surveyId}`}
+          showHomeAction={false}
+          showShowcaseAction={false}
+          title="问卷暂时无法访问"
+        />
+      );
+    }
+
+    throw error;
+  }
 
   if (!publishedSurvey) {
     return (

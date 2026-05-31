@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { HomeSurveyActions } from '@/components/home/HomeSurveyActions';
+import { DatabaseUnavailableNotice } from '@/components/system/DatabaseUnavailableNotice';
+import { isDatabaseUnavailableError } from '@/features/persistence/errors';
 import { listSurveyDrafts, type SurveyListItem } from '@/features/persistence/repository';
 
 
@@ -93,7 +95,18 @@ export default async function SurveysPage({
 }) {
   const resolvedSearchParams = (await searchParams) ?? {};
   const status = normalizeStatus(resolvedSearchParams.status ?? 'all');
-  const surveys = await listSurveyDrafts();
+  let surveys: SurveyListItem[];
+
+  try {
+    surveys = await listSurveyDrafts();
+  } catch (error) {
+    if (isDatabaseUnavailableError(error)) {
+      return <DatabaseUnavailableNotice retryHref="/surveys" />;
+    }
+
+    throw error;
+  }
+
   const filteredSurveys = filterSurveys(surveys, status);
   const totalSurveys = surveys.length;
   const publishedSurveys = surveys.filter((survey) => Boolean(survey.publishedVersion)).length;

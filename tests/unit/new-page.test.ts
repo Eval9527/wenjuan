@@ -1,5 +1,7 @@
+import { render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useSqlTestDatabase } from '../helpers/sql-test-db';
+import { setSqlPoolForTests } from '@/features/persistence/sql-client';
 import { getLatestSurveyDraft } from '@/features/persistence/repository';
 import { createSurveyFromTemplate, surveyTemplateCatalog } from '@/features/survey-schema/templates';
 
@@ -103,5 +105,26 @@ describe('NewSurveyPage', () => {
         expect.objectContaining({ type: 'multiChoice', label: '哪些因素最影响你的睡眠？' })
       ])
     );
+  });
+
+  it('shows a friendly notice when a new survey cannot be saved', async () => {
+    setSqlPoolForTests({
+      query: vi.fn().mockRejectedValue(new Error('database "postgres" does not exist')),
+      end: vi.fn().mockResolvedValue(undefined)
+    });
+
+    const { default: NewSurveyPage } = await import('@/app/new/page');
+
+    render(
+      await NewSurveyPage({
+        searchParams: Promise.resolve({
+          template: 'event-signup'
+        })
+      })
+    );
+
+    expect(redirectMock).not.toHaveBeenCalled();
+    expect(screen.getByRole('heading', { name: '演示数据库暂时不可用' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '刷新重试' })).toHaveAttribute('href', '/new?template=event-signup');
   });
 });

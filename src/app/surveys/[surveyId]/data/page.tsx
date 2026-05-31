@@ -1,4 +1,6 @@
 import type { Metadata } from 'next';
+import { DatabaseUnavailableNotice } from '@/components/system/DatabaseUnavailableNotice';
+import { isDatabaseUnavailableError } from '@/features/persistence/errors';
 import { getPublishedSurvey, listSurveyResponses } from '@/features/persistence/repository';
 import { buildSurveyResponseAnalytics, type QuestionAnalytics } from '@/features/responses/analytics';
 
@@ -9,7 +11,21 @@ export async function generateMetadata({
   params: Promise<{ surveyId: string }>;
 }): Promise<Metadata> {
   const { surveyId } = await params;
-  const publishedSurvey = await getPublishedSurvey(surveyId);
+  let publishedSurvey: Awaited<ReturnType<typeof getPublishedSurvey>>;
+
+  try {
+    publishedSurvey = await getPublishedSurvey(surveyId);
+  } catch (error) {
+    if (isDatabaseUnavailableError(error)) {
+      return {
+        title: '演示数据库暂时不可用',
+        description: '当前无法读取问卷数据，请稍后刷新重试。',
+        robots: { index: false, follow: false }
+      };
+    }
+
+    throw error;
+  }
 
   return {
     title: publishedSurvey ? `问卷数据：${publishedSurvey.document.title}` : '问卷数据',
@@ -124,7 +140,25 @@ export default async function SurveyDataPage({
   params: Promise<{ surveyId: string }>;
 }) {
   const { surveyId } = await params;
-  const publishedSurvey = await getPublishedSurvey(surveyId);
+  let publishedSurvey: Awaited<ReturnType<typeof getPublishedSurvey>>;
+
+  try {
+    publishedSurvey = await getPublishedSurvey(surveyId);
+  } catch (error) {
+    if (isDatabaseUnavailableError(error)) {
+      return (
+        <DatabaseUnavailableNotice
+          helper=""
+          message="统计数据服务暂时不可用。如果这是你的私有部署版本，请检查 DATABASE_URL 连接配置是否正确。"
+          retryHref={`/surveys/${surveyId}/data`}
+          showShowcaseAction={false}
+          title="无法加载分析数据"
+        />
+      );
+    }
+
+    throw error;
+  }
 
   if (!publishedSurvey) {
     return (
@@ -143,7 +177,26 @@ export default async function SurveyDataPage({
     );
   }
 
-  const responses = await listSurveyResponses(surveyId);
+  let responses: Awaited<ReturnType<typeof listSurveyResponses>>;
+
+  try {
+    responses = await listSurveyResponses(surveyId);
+  } catch (error) {
+    if (isDatabaseUnavailableError(error)) {
+      return (
+        <DatabaseUnavailableNotice
+          helper=""
+          message="统计数据服务暂时不可用。如果这是你的私有部署版本，请检查 DATABASE_URL 连接配置是否正确。"
+          retryHref={`/surveys/${surveyId}/data`}
+          showShowcaseAction={false}
+          title="无法加载分析数据"
+        />
+      );
+    }
+
+    throw error;
+  }
+
   const analytics = buildSurveyResponseAnalytics(publishedSurvey.document, responses);
 
   return (

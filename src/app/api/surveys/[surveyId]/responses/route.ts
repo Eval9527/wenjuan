@@ -1,6 +1,12 @@
 import { getDemoModeConfig } from '@/features/demo-mode/config';
-import { demoQuotaResponse, getDemoRequestContext, jsonWithDemoContext } from '@/features/demo-mode/http';
+import {
+  demoQuotaResponse,
+  getDemoRequestContext,
+  jsonWithDemoContext,
+  type DemoRequestContext
+} from '@/features/demo-mode/http';
 import { assertSubmitQuota, recordSubmitUsage } from '@/features/demo-mode/quota';
+import { createDatabaseUnavailableResponse, isDatabaseUnavailableError } from '@/features/persistence/errors';
 import { getPublishedSurvey, listSurveyResponses, submitSurveyResponse } from '@/features/persistence/repository';
 
 function getLimit(request: Request) {
@@ -16,26 +22,37 @@ function getLimit(request: Request) {
 
 export async function GET(request: Request, { params }: { params: Promise<{ surveyId: string }> }) {
   const { surveyId } = await params;
-  const published = await getPublishedSurvey(surveyId);
 
-  if (!published) {
-    return Response.json({ error: 'Published survey not found' }, { status: 404 });
+  try {
+    const published = await getPublishedSurvey(surveyId);
+
+    if (!published) {
+      return Response.json({ error: 'Published survey not found' }, { status: 404 });
+    }
+
+    const responses = await listSurveyResponses(surveyId);
+
+    return Response.json({
+      responseCount: responses.length,
+      responses: responses.slice(0, getLimit(request))
+    });
+  } catch (error) {
+    if (isDatabaseUnavailableError(error)) {
+      return createDatabaseUnavailableResponse();
+    }
+
+    throw error;
   }
-
-  const responses = await listSurveyResponses(surveyId);
-
-  return Response.json({
-    responseCount: responses.length,
-    responses: responses.slice(0, getLimit(request))
-  });
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ surveyId: string }> }) {
   const { surveyId } = await params;
-  const demoContext = await getDemoRequestContext(request);
-  const body = await request.json();
+  let demoContext: DemoRequestContext | null = null;
 
   try {
+    demoContext = await getDemoRequestContext(request);
+    const body = await request.json();
+
     if (demoContext) {
       await assertSubmitQuota({
         store: demoContext.store,
@@ -79,6 +96,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ sur
 
     if (error instanceof Error && error.message === 'Published survey not found') {
       return jsonWithDemoContext({ error: 'Published survey not found' }, { status: 404 }, demoContext);
+    }
+
+    if (isDatabaseUnavailableError(error)) {
+      return createDatabaseUnavailableResponse();
     }
 
     throw error;

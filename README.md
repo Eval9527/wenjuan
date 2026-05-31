@@ -1,4 +1,4 @@
-# Wenjuan｜AI-first Survey Editor
+# Wenjuan｜AI-first Low-code Survey Editor
 
 语言 / Language： [中文说明](#中文说明) · [English](#english)
 
@@ -6,7 +6,7 @@
 
 ## 中文说明
 
-Wenjuan 是一个基于 **Next.js 15 / React 19 / TypeScript / Tailwind CSS v4** 的 AI-first 问卷编辑器。它覆盖从自然语言生成问卷，到可视化编辑、发布填写、收集答卷、查看数据分析的完整工作流。
+Wenjuan 是一个基于 **Next.js 15 / React 19 / TypeScript / Tailwind CSS v4** 的 AI-first 低代码问卷编辑器 demo。它把拖拽式问卷搭建、可视化属性配置、AI 生成与变更预览、发布填写、答卷分析串成一条完整工作流。
 
 ### 在线入口
 
@@ -16,9 +16,10 @@ Wenjuan 是一个基于 **Next.js 15 / React 19 / TypeScript / Tailwind CSS v4**
 
 ### 功能亮点
 
+- **低代码拖拽搭建**：通过题型面板、问卷画布和属性面板组合问卷，支持拖拽排序与即时预览。
 - **AI 生成问卷**：从首页输入需求，进入编辑器后由 AI 助手生成问卷内容。
 - **安全的 AI 变更流**：核心路径保持 `prompt -> changeset -> preview -> apply`，避免静默覆盖问卷。
-- **可视化编辑器**：题型面板、问卷画布、AI 助手、组件属性面板协同工作。
+- **可视化编辑器**：编辑画布尽量贴近最终填写效果，题目配置与编辑操作集中在工具栏和属性面板。
 - **自动保存 + 手动保存**：编辑时自动保存，同时提供显式保存按钮和 toast 反馈。
 - **发布填写页**：发布页读取 published snapshot，草稿修改不会影响已发布问卷。
 - **答卷数据分析**：按题目展示答卷内容、选择比例和最近提交记录。
@@ -44,13 +45,29 @@ pnpm dev
 
 `.env.local` 只放本地或部署环境的私密配置，不要提交到 git。
 
-关键环境变量：
+本地开发服务可以在没有数据库时启动，但创建、保存、发布、填写和查看数据都需要可用的 Postgres-compatible 数据库。没有可用数据库时，页面会显示友好的服务状态提示，而不是直接暴露服务器异常。
+
+### 数据库配置
+
+关键环境变量是 `DATABASE_URL`：
 
 ```env
-DATABASE_URL=<your-postgres-connection-string>
+DATABASE_URL=postgresql://USER:PASSWORD@HOST:PORT/DB_NAME?sslmode=require
 ```
 
+`DB_NAME` 使用数据库服务商分配或你创建的数据库名即可，例如 `postgres`、`neondb` 或 `defaultdb`；Wenjuan 不要求固定数据库名。项目首次访问数据库时会自动创建所需的 `wenjuan_*` 表，不需要手动导入 SQL。
+
+部署在 Vercel 这类 serverless 环境时，优先使用数据库服务商提供的 pooled / pooler 连接串。真实连接串、AI key 和站点地址都只放在 `.env.local` 或部署平台环境变量里。
+
 如果启用线上 AI，需要按 `src/features/ai-assistant/model-catalog.ts` 中的模型清单配置对应的环境变量。
+
+### 免费数据库选择
+
+| 方案 | 适合场景 | 免费限制与注意事项 |
+| --- | --- | --- |
+| Neon Postgres | 个人 demo、Vercel serverless、小流量公开体验 | Free 计划适合演示与原型；每个项目有月度 compute hours 与存储额度，空闲时 compute 会 scale to zero，冷启动首次访问可能稍慢。 |
+| Supabase Postgres | 熟悉 Supabase 控制台，或后续想接 Auth / Storage / Realtime | Free 计划适合轻量项目；有数据库大小、活跃项目数等限制，长期不活跃会暂停；暂停后有恢复窗口，过期后需要从备份迁移到新项目。 |
+| 其他 Postgres-compatible 服务 | 已有数据库资源，或希望部署到特定云厂商 | 需要支持 PostgreSQL、JSONB、外键约束，并提供标准 `DATABASE_URL`；切换后请运行 `pnpm test` 和 `pnpm build`。 |
 
 ### 部署建议
 
@@ -59,7 +76,8 @@ DATABASE_URL=<your-postgres-connection-string>
 1. 准备一个 Postgres-compatible 数据库。
 2. 在部署平台配置 `DATABASE_URL`。
 3. 设置 `NEXT_PUBLIC_SITE_URL` 为线上站点地址，便于生成 canonical / Open Graph metadata。
-4. 触发部署。
+4. 如果启用真实 AI provider，配置 `src/features/ai-assistant/model-catalog.ts` 对应的 key。
+5. 触发部署。
 
 项目会在首次访问数据库时确保所需 SQL schema 存在。
 
@@ -75,7 +93,7 @@ git diff --check
 
 ## English
 
-Wenjuan is an AI-first survey editor built with **Next.js 15, React 19, TypeScript, and Tailwind CSS v4**. It covers the full workflow from natural-language survey generation to visual editing, publishing, collecting responses, and analyzing results.
+Wenjuan is an AI-first low-code survey editor demo built with **Next.js 15, React 19, TypeScript, and Tailwind CSS v4**. It combines drag-and-drop survey building, visual property editing, AI generation with previewable changesets, publishing, response collection, and analytics.
 
 ### Entry Points
 
@@ -85,9 +103,10 @@ Wenjuan is an AI-first survey editor built with **Next.js 15, React 19, TypeScri
 
 ### Highlights
 
+- **Low-code drag-and-drop editing**: Compose surveys with a block palette, canvas, inspector, drag sorting, and live preview.
 - **AI survey generation**: Start from a homepage prompt and continue generation inside the editor.
 - **Safe AI change flow**: AI changes follow `prompt -> changeset -> preview -> apply` instead of silently mutating data.
-- **Visual editor**: Block palette, survey canvas, AI assistant, and inspector panel work together.
+- **Visual editor**: The canvas stays close to the final fill experience, while editing controls live in the toolbar and inspector.
 - **Autosave + manual save**: Drafts autosave, while users also get an explicit save button and toast feedback.
 - **Published snapshot delivery**: Public fill pages read the published snapshot, not the latest draft.
 - **Response analytics**: Question-level statistics, choice percentages, and recent submissions.
@@ -113,13 +132,29 @@ pnpm dev
 
 Keep private values in `.env.local` or deployment environment variables. Do not commit local secrets.
 
+The dev server can start without a database, but creating, saving, publishing, submitting responses, and viewing analytics require a working Postgres-compatible database. If storage is unavailable, Wenjuan shows a friendly service status notice instead of a generic server exception.
+
+### Database Setup
+
 Core environment variable:
 
 ```env
-DATABASE_URL=<your-postgres-connection-string>
+DATABASE_URL=postgresql://USER:PASSWORD@HOST:PORT/DB_NAME?sslmode=require
 ```
 
+Use the database name assigned by your provider or the one you created, such as `postgres`, `neondb`, or `defaultdb`; Wenjuan does not require a fixed database name. On first database access, the app creates the required `wenjuan_*` tables automatically.
+
+For serverless deployments such as Vercel, prefer the provider's pooled connection string when available. Keep the real connection string, AI keys, and site URL in `.env.local` or deployment environment variables only.
+
 To enable production AI providers, configure the environment variables referenced by `src/features/ai-assistant/model-catalog.ts`.
+
+### Free Database Options
+
+| Option | Best For | Free Limits and Notes |
+| --- | --- | --- |
+| Neon Postgres | Personal demos, Vercel serverless, low-traffic public demos | The Free plan fits demos and prototypes; each project has monthly compute-hour and storage allowances, and idle compute can scale to zero, so the first request after inactivity may be slower. |
+| Supabase Postgres | Teams already comfortable with Supabase, or projects that may later use Auth / Storage / Realtime | The Free plan fits lightweight projects; it has database size and active-project limits, and inactive projects can pause; paused projects have a restore window, after which backup migration is required. |
+| Other Postgres-compatible services | Existing database resources or a preferred cloud provider | Must support PostgreSQL, JSONB, foreign keys, and a standard `DATABASE_URL`; run `pnpm test` and `pnpm build` after switching. |
 
 ### Deployment
 
@@ -128,7 +163,8 @@ Recommended setup: **Vercel + Postgres-compatible database**.
 1. Prepare a Postgres-compatible database.
 2. Add `DATABASE_URL` to your deployment environment variables.
 3. Set `NEXT_PUBLIC_SITE_URL` to your public site URL for canonical and Open Graph metadata.
-4. Deploy.
+4. If you enable real AI providers, configure the keys referenced by `src/features/ai-assistant/model-catalog.ts`.
+5. Deploy.
 
 The app ensures the required SQL schema on first database access.
 

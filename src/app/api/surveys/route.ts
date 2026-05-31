@@ -1,5 +1,11 @@
-import { demoQuotaResponse, getDemoRequestContext, jsonWithDemoContext } from '@/features/demo-mode/http';
+import {
+  demoQuotaResponse,
+  getDemoRequestContext,
+  jsonWithDemoContext,
+  type DemoRequestContext
+} from '@/features/demo-mode/http';
 import { assertSurveyCreateQuota, recordSurveyCreateUsage } from '@/features/demo-mode/quota';
+import { createDatabaseUnavailableResponse, isDatabaseUnavailableError } from '@/features/persistence/errors';
 import { createEmptySurvey } from '@/features/survey-schema/factories';
 import { listSurveyDrafts, saveSurveyDraft } from '@/features/persistence/repository';
 
@@ -8,18 +14,28 @@ function createShortSurveyId() {
 }
 
 export async function GET() {
-  return Response.json({
-    surveys: await listSurveyDrafts()
-  });
+  try {
+    return Response.json({
+      surveys: await listSurveyDrafts()
+    });
+  } catch (error) {
+    if (isDatabaseUnavailableError(error)) {
+      return createDatabaseUnavailableResponse();
+    }
+
+    throw error;
+  }
 }
 
 export async function POST(request: Request) {
-  const demoContext = await getDemoRequestContext(request);
-  const body = await request.json().catch(() => ({}));
-  const surveyId =
-    typeof body?.surveyId === 'string' && body.surveyId.trim() ? body.surveyId.trim() : createShortSurveyId();
+  let demoContext: DemoRequestContext | null = null;
 
   try {
+    demoContext = await getDemoRequestContext(request);
+    const body = await request.json().catch(() => ({}));
+    const surveyId =
+      typeof body?.surveyId === 'string' && body.surveyId.trim() ? body.surveyId.trim() : createShortSurveyId();
+
     if (demoContext) {
       await assertSurveyCreateQuota({
         store: demoContext.store,
@@ -48,6 +64,10 @@ export async function POST(request: Request) {
     const quotaResponse = demoQuotaResponse(error, demoContext);
     if (quotaResponse) {
       return quotaResponse;
+    }
+
+    if (isDatabaseUnavailableError(error)) {
+      return createDatabaseUnavailableResponse();
     }
 
     throw error;

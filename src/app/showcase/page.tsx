@@ -3,159 +3,224 @@ import Link from 'next/link';
 
 export const metadata: Metadata = {
   title: '项目功能展示',
-  description: '用一页可视化介绍 Wenjuan 从 AI 生成问卷到编辑、发布、填写与数据分析的完整流程。',
+  description: '介绍 Wenjuan 的 AI-first 低代码问卷工作流：生成、预览、编辑、发布、填写与分析。',
   alternates: { canonical: '/showcase' }
 };
 
-const flow = [
-  { title: '描述需求', text: '用自然语言写下调研目标，也可以从常见问卷场景快速开始。' },
-  { title: '生成结构', text: 'AI 将需求转换为标题、说明、题目与选项，并保留人工确认入口。' },
-  { title: '编辑预览', text: '题型面板、问卷画布、属性设置与 AI 助手在同一工作台协同。' },
-  { title: '发布填写', text: '发布后获得独立填写页，后续草稿修改不会影响已发布版本。' },
-  { title: '分析答卷', text: '按题目查看选择比例、文本反馈与最近提交记录，快速完成回收闭环。' }
+const productFlow = [
+  {
+    code: '01',
+    title: '描述需求',
+    text: '用一句中文说明调研目标、对象和场景，也可以从模板或空白问卷开始。',
+    output: 'Prompt'
+  },
+  {
+    code: '02',
+    title: '生成 changeset',
+    text: 'AI 先产出可审查的结构变更，包含新增、修改和删除，不直接覆盖问卷。',
+    output: 'Review'
+  },
+  {
+    code: '03',
+    title: '预览并应用',
+    text: '用户确认变更内容后再应用到草稿，关键修改始终保留人工判断。',
+    output: 'Draft'
+  },
+  {
+    code: '04',
+    title: '低代码编辑',
+    text: '通过题型、画布和属性配置继续打磨问卷，支持拖拽排序与即时预览。',
+    output: 'Canvas'
+  },
+  {
+    code: '05',
+    title: '发布与分析',
+    text: '发布页读取稳定快照，答卷独立入库，并在数据页形成回收闭环。',
+    output: 'Insight'
+  }
 ];
 
-const features = [
-  ['AI 问卷生成', '从一句话生成可编辑问卷结构，把空白页变成可继续打磨的初稿。'],
-  ['变更先预览', 'AI 修改以 changeset 形式呈现，用户确认后再应用到问卷。'],
-  ['可视化编辑', '中间画布贴近最终问卷，编辑控件外置，减少内容本体干扰。'],
-  ['保存有反馈', '自动保存覆盖日常编辑，手动保存按钮用于明确确认当前状态。'],
-  ['发布版本稳定', '填写页读取已发布快照，保证已投放问卷的内容稳定可追溯。'],
-  ['答卷数据看板', '选择题统计比例，文本题展示最近回答，方便快速复盘。']
+const highlights = [
+  {
+    title: '低代码拖拽画布',
+    text: '题型添加、排序和属性配置都在可视化界面完成，让非技术用户也能维护问卷。'
+  },
+  {
+    title: 'AI 生成初稿',
+    text: '自然语言需求会被转换为问卷标题、说明、题目和选项，减少从零起草的成本。'
+  },
+  {
+    title: 'changeset 人审机制',
+    text: 'AI 修改先进入预览层，用户看清变化后再应用，避免黑箱式静默改动。'
+  },
+  {
+    title: '发布快照隔离',
+    text: '填写页使用已发布版本，草稿继续修改也不会影响已经投放出去的问卷。'
+  },
+  {
+    title: '中文表单体验',
+    text: '按钮、标签、提示和问卷结构面向中文业务场景设计，保留清晰的操作语义。'
+  },
+  {
+    title: '答卷分析闭环',
+    text: '选择题统计比例，文本题展示最近反馈，帮助快速判断问卷是否达成目标。'
+  }
 ];
 
-const canvasBlocks = [
-  '您目前的睡眠时长是？',
-  '影响休息质量的主要因素',
-  '希望公司提供哪些支持？'
+const implementationNotes = [
+  {
+    label: 'AI 修改链路',
+    title: 'prompt -> changeset -> preview -> apply',
+    text: 'AI 只负责提出可审查的结构变更，真正写入草稿前必须经过用户确认。'
+  },
+  {
+    label: '发布数据模型',
+    title: 'draft -> published snapshot -> responses',
+    text: '编辑态和发布态分离，填写页只读取快照，答卷和分析围绕发布版本沉淀。'
+  },
+  {
+    label: '持久化边界',
+    title: 'Postgres-compatible DATABASE_URL',
+    text: '仓库层只依赖通用 Postgres 连接字符串，适合 Neon、Supabase 等个人 demo 部署。'
+  }
 ];
 
 export default function ShowcasePage() {
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-[1160px] flex-col gap-8 px-4 py-8 md:px-8 md:py-12">
-      <section className="ui-surface overflow-hidden p-0">
-        <div className="grid min-h-[560px] gap-0 lg:grid-cols-[0.92fr_1.08fr]">
-          <div className="flex flex-col justify-between gap-10 p-6 md:p-10">
-            <div className="space-y-6">
-              <span className="ui-kicker">Project Showcase</span>
-              <div className="space-y-4">
-                <h1 className="m-0 max-w-3xl text-[36px] font-[850] leading-[1.05] tracking-[-0.04em] text-[#101828] md:text-[56px]">
-                  从一句话到可发布问卷
-                </h1>
-                <p className="m-0 max-w-xl text-[16px] leading-7 text-[#667085] md:text-[17px]">
-                  Wenjuan 把 AI 生成、可视化编辑、发布填写和答卷分析放进同一条清晰流程，让问卷创建更快，也更可控。
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-3">
-                <Link className="ui-btn ui-btn-primary" href="/">
-                  打开工作台
-                </Link>
-                <Link className="ui-btn ui-btn-secondary" href="/surveys">
-                  查看问卷中心
-                </Link>
-              </div>
+    <main className="min-h-screen bg-[#f3f5f8] text-[#101828]">
+      <section className="border-b border-[#d7dee8] bg-[#f8fafc]">
+        <div className="mx-auto grid w-full max-w-[1160px] gap-10 px-4 py-10 md:px-8 md:py-14 lg:grid-cols-[0.88fr_1.12fr] lg:items-center">
+          <div className="flex flex-col gap-7">
+            <span className="ui-kicker">产品功能展示</span>
+            <div className="flex flex-col gap-4">
+              <h1 className="m-0 text-[36px] font-[800] leading-[1.12] text-[#101828] md:text-[52px]">
+                AI-first 低代码问卷编辑器
+              </h1>
+              <p className="m-0 max-w-[620px] text-[16px] leading-7 text-[#475467] md:text-[17px]">
+                Wenjuan 的展示页应该回答一个问题：从一句需求到可发布、可填写、可分析的问卷，中间每一步如何保持高效又可控。
+              </p>
             </div>
-
+            <div className="flex flex-wrap gap-3">
+              <Link className="ui-btn ui-btn-primary" href="/">
+                打开工作台
+              </Link>
+              <Link className="ui-btn ui-btn-secondary" href="/surveys">
+                查看问卷中心
+              </Link>
+            </div>
             <div className="grid gap-3 sm:grid-cols-3">
-              {['生成', '编辑', '发布'].map((label, index) => (
-                <div className="rounded-2xl border border-[#d7dee8] bg-[#f8fafc] p-4" key={label}>
-                  <span className="text-[13px] font-[700] text-[#2563eb]">0{index + 1}</span>
-                  <p className="mb-0 mt-2 text-[15px] font-[700] text-[#101828]">{label}问卷</p>
+              {['AI 生成初稿', '人审后应用', '发布快照稳定'].map((item) => (
+                <div className="border-l-2 border-[#2563eb] bg-white px-4 py-3 text-[14px] font-[700] text-[#1e293b]" key={item}>
+                  {item}
                 </div>
               ))}
             </div>
           </div>
 
-          <div aria-label="Wenjuan 产品界面示意" className="relative overflow-hidden bg-[#eef4ff] p-4 md:p-8">
-            <div className="absolute right-[-80px] top-[-80px] h-56 w-56 rounded-full bg-[#bfdbfe] opacity-70 blur-3xl" />
-            <div className="absolute bottom-[-100px] left-[-80px] h-64 w-64 rounded-full bg-[#dbeafe] opacity-80 blur-3xl" />
-
-            <div className="relative rounded-[30px] border border-[#c4cfdd] bg-white/90 p-4 shadow-[0_28px_70px_rgba(15,23,42,0.16)] backdrop-blur">
-              <div className="mb-4 flex items-center justify-between rounded-2xl bg-[#f8fafc] px-4 py-3">
-                <div className="flex items-center gap-2">
-                  <span className="h-3 w-3 rounded-full bg-[#ef4444]" />
-                  <span className="h-3 w-3 rounded-full bg-[#f59e0b]" />
-                  <span className="h-3 w-3 rounded-full bg-[#22c55e]" />
-                </div>
-                <span className="rounded-full bg-white px-3 py-1 text-[12px] font-[700] text-[#475467]">AI survey workspace</span>
+          <section aria-label="Wenjuan 产品流程地图" className="rounded-lg border border-[#d7dee8] bg-white p-5 shadow-[0_2px_4px_rgba(15,23,42,0.04)] md:p-6">
+            <div className="mb-5 flex flex-col gap-2 border-b border-[#e2e8f0] pb-4 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="m-0 text-[13px] font-[700] text-[#2563eb]">核心路径</p>
+                <h2 className="m-0 mt-1 text-[22px] font-[800] leading-snug text-[#101828]">
+                  从需求到数据的工作流
+                </h2>
               </div>
-
-              <div className="grid gap-3 lg:grid-cols-[0.72fr_1.2fr_0.88fr]">
-                <aside className="rounded-3xl bg-[#f8fafc] p-3">
-                  <p className="m-0 px-2 pb-2 text-[12px] font-[800] text-[#667085]">题型</p>
-                  {['单选题', '多选题', '文本题', '评分题'].map((item) => (
-                    <div className="mb-2 rounded-2xl border border-[#e2e8f0] bg-white px-3 py-3 text-[13px] font-[700] text-[#334155]" key={item}>
-                      {item}
-                    </div>
-                  ))}
-                </aside>
-
-                <section className="rounded-3xl border border-[#d7dee8] bg-white p-4">
-                  <div className="mb-4 rounded-2xl bg-[#eff6ff] p-4 text-center">
-                    <p className="m-0 text-[17px] font-[800] text-[#101828]">员工睡眠质量调研</p>
-                    <p className="mb-0 mt-2 text-[12px] text-[#667085]">了解休息状态，优化团队支持方式</p>
-                  </div>
-                  <div className="space-y-3">
-                    {canvasBlocks.map((block, index) => (
-                      <article className="rounded-2xl border border-[#e2e8f0] bg-[#fcfdff] p-3" key={block}>
-                        <div className="mb-3 flex items-center justify-between gap-3">
-                          <strong className="text-[13px] text-[#101828]">{index + 1}. {block}</strong>
-                          <span className="rounded-full bg-[#eef2ff] px-2 py-1 text-[11px] font-[700] text-[#2563eb]">必填</span>
-                        </div>
-                        <div className="grid gap-2">
-                          <span className="h-8 rounded-xl bg-[#f1f5f9]" />
-                          <span className="h-8 rounded-xl bg-[#f1f5f9]" />
-                        </div>
-                      </article>
-                    ))}
-                  </div>
-                </section>
-
-                <aside className="space-y-3 rounded-3xl bg-[#0f172a] p-3 text-white">
-                  <p className="m-0 px-1 text-[12px] font-[800] text-[#bfdbfe]">AI 助手</p>
-                  <div className="rounded-2xl bg-white/10 p-3 text-[13px] leading-6 text-[#dbeafe]">
-                    增加一个关于通勤压力的多选题，并把选项保持为中文短句。
-                  </div>
-                  <div className="rounded-2xl bg-white p-3 text-[#101828]">
-                    <p className="m-0 text-[12px] font-[800] text-[#2563eb]">变更预览</p>
-                    <p className="mb-0 mt-2 text-[13px] leading-5 text-[#475467]">将新增 1 道多选题，确认后应用到当前草稿。</p>
-                  </div>
-                  <button className="ui-btn ui-btn-primary w-full justify-center" type="button">应用变更</button>
-                </aside>
-              </div>
+              <p className="m-0 text-[13px] leading-5 text-[#667085]">
+                不模拟编辑器，只呈现产品真正的运行逻辑。
+              </p>
             </div>
-          </div>
+
+            <ol className="m-0 flex list-none flex-col gap-0 p-0">
+              {productFlow.map((step, index) => (
+                <li className="grid grid-cols-[48px_minmax(0,1fr)] gap-4 border-b border-[#eef2f6] py-4 last:border-b-0 md:grid-cols-[56px_minmax(0,1fr)_96px]" key={step.title}>
+                  <div className="relative flex justify-center">
+                    {index < productFlow.length - 1 && (
+                      <span aria-hidden="true" className="absolute left-1/2 top-10 h-[calc(100%+16px)] w-px -translate-x-1/2 bg-[#d7dee8]" />
+                    )}
+                    <span className="relative z-10 flex h-10 w-10 items-center justify-center rounded-full border border-[#bfdbfe] bg-[#eff6ff] text-[13px] font-[800] text-[#1d4ed8]">
+                      {step.code}
+                    </span>
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="m-0 text-[17px] font-[800] leading-snug text-[#101828]">{step.title}</h3>
+                    <p className="m-0 mt-2 text-[14px] leading-6 text-[#667085]">{step.text}</p>
+                  </div>
+                  <div className="col-start-2 flex items-start md:col-start-auto md:justify-end">
+                    <span className="rounded-full bg-[#f8fafc] px-3 py-1 text-[12px] font-[700] text-[#475467] ring-1 ring-[#d7dee8]">
+                      {step.output}
+                    </span>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </section>
         </div>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {features.map(([title, text]) => (
-          <article className="ui-panel p-5" key={title}>
-            <h2 className="m-0 text-[18px] font-[800] text-[#101828]">{title}</h2>
-            <p className="mb-0 mt-3 text-sm leading-6 text-[#667085]">{text}</p>
-          </article>
-        ))}
-      </section>
-
-      <section className="ui-panel p-6 md:p-8">
-        <div className="mb-7 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
-          <div>
-            <span className="ui-kicker">Workflow</span>
-            <h2 className="mb-0 mt-3 text-[26px] font-[850] tracking-tight text-[#101828]">从创建到分析的 5 步闭环</h2>
-          </div>
-          <p className="m-0 max-w-md text-sm leading-6 text-[#667085]">每一步都保留清晰反馈和可回退空间，适合真实问卷从草稿走向投放。</p>
+      <section className="mx-auto w-full max-w-[1160px] px-4 py-10 md:px-8 md:py-12">
+        <div className="mb-6 flex max-w-[760px] flex-col gap-3">
+          <span className="ui-kicker">核心亮点</span>
+          <h2 className="m-0 text-[28px] font-[800] leading-tight text-[#101828] md:text-[34px]">
+            面向真实问卷工作的能力组合
+          </h2>
+          <p className="m-0 text-[15px] leading-7 text-[#667085]">
+            这不是单点 AI demo，而是一条围绕问卷创建、审核、投放和复盘的低代码流程。
+          </p>
         </div>
-        <div className="grid gap-3 md:grid-cols-5">
-          {flow.map((item, index) => (
-            <article className="relative rounded-2xl border border-[#d7dee8] bg-[#f8fafc] p-4" key={item.title}>
-              <span className="mb-4 inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#2563eb] text-sm font-[850] text-white">
+
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {highlights.map((feature, index) => (
+            <article className="rounded-lg border border-[#d7dee8] bg-white p-5 shadow-[0_2px_4px_rgba(15,23,42,0.04)]" key={feature.title}>
+              <span className="mb-4 inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#f8fafc] text-[13px] font-[800] text-[#2563eb] ring-1 ring-[#d7dee8]">
                 {index + 1}
               </span>
-              <h3 className="m-0 text-[16px] font-[800] text-[#101828]">{item.title}</h3>
-              <p className="mb-0 mt-2 text-[13px] leading-5 text-[#667085]">{item.text}</p>
+              <h3 className="m-0 text-[18px] font-[800] leading-snug text-[#101828]">{feature.title}</h3>
+              <p className="m-0 mt-3 text-[14px] leading-6 text-[#667085]">{feature.text}</p>
             </article>
           ))}
         </div>
+      </section>
+
+      <section className="border-y border-[#d7dee8] bg-[#eef2f6]">
+        <div className="mx-auto grid w-full max-w-[1160px] gap-8 px-4 py-10 md:px-8 md:py-12 lg:grid-cols-[0.78fr_1.22fr] lg:items-start">
+          <div className="flex flex-col gap-3">
+            <span className="ui-kicker">实现逻辑</span>
+            <h2 className="m-0 text-[28px] font-[800] leading-tight text-[#101828] md:text-[34px]">
+              为什么它适合作为可公开体验的产品 demo
+            </h2>
+            <p className="m-0 text-[15px] leading-7 text-[#475467]">
+              展示页把关键边界讲清楚：AI 不越权，发布不漂移，数据不绑死某一家服务。
+            </p>
+          </div>
+
+          <div className="grid gap-4">
+            {implementationNotes.map((item) => (
+              <article className="grid gap-4 rounded-lg border border-[#d7dee8] bg-white p-5 shadow-[0_2px_4px_rgba(15,23,42,0.04)] md:grid-cols-[164px_minmax(0,1fr)]" key={item.label}>
+                <div className="flex items-start">
+                  <span className="rounded-full bg-[#eff6ff] px-3 py-1 text-[12px] font-[800] text-[#1d4ed8]">
+                    {item.label}
+                  </span>
+                </div>
+                <div className="min-w-0">
+                  <h3 className="m-0 break-words text-[18px] font-[800] leading-snug text-[#101828]">{item.title}</h3>
+                  <p className="m-0 mt-2 text-[14px] leading-6 text-[#667085]">{item.text}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="mx-auto flex w-full max-w-[1160px] flex-col gap-4 px-4 py-10 md:flex-row md:items-center md:justify-between md:px-8 md:py-12">
+        <div>
+          <h2 className="m-0 text-[24px] font-[800] leading-tight text-[#101828]">想看完整链路？</h2>
+          <p className="m-0 mt-2 text-[15px] leading-6 text-[#667085]">
+            回到首页输入一个调研需求，即可体验从生成到发布的实际工作流。
+          </p>
+        </div>
+        <Link className="ui-btn ui-btn-primary shrink-0" href="/">
+          立即体验
+        </Link>
       </section>
     </main>
   );

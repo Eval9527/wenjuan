@@ -2,6 +2,8 @@ import type { Metadata } from 'next';
 import { HomeSurveyActions } from '@/components/home/HomeSurveyActions';
 import { HomeQuickGenerateForm } from '@/components/home/HomeQuickGenerateForm';
 import { HomeTemplateLinks } from '@/components/home/HomeTemplateLinks';
+import { DatabaseUnavailableNotice } from '@/components/system/DatabaseUnavailableNotice';
+import { isDatabaseUnavailableError } from '@/features/persistence/errors';
 import { listSurveyDrafts, type SurveyListItem } from '@/features/persistence/repository';
 import { surveyTemplateCatalog } from '@/features/survey-schema/templates';
 
@@ -64,7 +66,18 @@ export default async function HomePage({
   searchParams?: Promise<{ view?: string; status?: string }>;
 }) {
   const resolvedSearchParams = (await searchParams) ?? {};
-  const surveys = await listSurveyDrafts();
+  let surveys: SurveyListItem[];
+
+  try {
+    surveys = await listSurveyDrafts();
+  } catch (error) {
+    if (isDatabaseUnavailableError(error)) {
+      return <DatabaseUnavailableNotice retryHref="/" showHomeAction={false} />;
+    }
+
+    throw error;
+  }
+
   const totalSurveys = surveys.length;
   const publishedSurveys = surveys.filter((survey) => Boolean(survey.publishedVersion)).length;
   const totalResponses = surveys.reduce((sum, survey) => sum + survey.responseCount, 0);
