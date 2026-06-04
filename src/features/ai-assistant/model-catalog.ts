@@ -34,8 +34,8 @@ export const aiModelCatalog = [
     autoTimeoutMs: 90_000,
     singleTimeoutMs: 120_000,
     models: [
-      { id: 'mimo-v2.5', alias: 'mimo-v2.5', primary: true },
-      { id: 'mimo-v2-omni', alias: 'mimo-v2-omni' }
+      { id: 'mimo-v2-flash', alias: 'mimo-v2-flash', primary: true },
+      { id: 'mimo-v2.5', alias: 'mimo-v2.5' }
     ]
   }
 ] as const satisfies AiModelCatalog;
