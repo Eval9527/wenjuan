@@ -38,7 +38,7 @@ function setCatalog(catalog: AiModelCatalog) {
 }
 
 describe('ai model config', () => {
-  it('ships Google Gemini as primary and the free BigModel GLM as fallback', () => {
+  it('ships free Google Gemini models before the free BigModel GLM fallback', () => {
     setAiModelCatalogForTests(null);
 
     const candidates = getAiModelCandidates({
@@ -49,13 +49,22 @@ describe('ai model config', () => {
     expect(aiModelCatalog).toHaveLength(2);
     expect(candidates).toMatchObject([
       {
-        id: 'google:gemini-2.5-flash',
-        alias: 'Gemini 2.5 Flash',
+        id: 'google:gemini-3.1-flash-lite',
+        alias: 'Gemini 3.1 Flash-Lite',
         providerAlias: 'Google AI',
         api: 'google-generate-content',
         baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3.1-flash-lite',
         primary: true
+      },
+      {
+        id: 'google:gemini-3.5-flash',
+        alias: 'Gemini 3.5 Flash',
+        providerAlias: 'Google AI',
+        api: 'google-generate-content',
+        baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
+        model: 'gemini-3.5-flash',
+        primary: false
       },
       {
         id: 'bigmodel:glm-4-flash-250414',

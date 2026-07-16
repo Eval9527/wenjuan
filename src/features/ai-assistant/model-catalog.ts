@@ -33,7 +33,8 @@ export const aiModelCatalog = [
     baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
     apiKeyEnv: 'WENJUAN_AI_GOOGLE_API_KEY',
     models: [
-      { id: 'gemini-2.5-flash', alias: 'Gemini 2.5 Flash', primary: true }
+      { id: 'gemini-3.1-flash-lite', alias: 'Gemini 3.1 Flash-Lite', primary: true },
+      { id: 'gemini-3.5-flash', alias: 'Gemini 3.5 Flash' }
     ]
   },
   {

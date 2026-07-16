@@ -216,7 +216,7 @@ describe('POST /api/ai/changes', () => {
         apiKeyEnv: 'TEST_LOCAL_AI_KEY',
         baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
         models: [
-          { id: 'gemini-2.5-flash', alias: 'Gemini 2.5 Flash', primary: true }
+          { id: 'gemini-3.1-flash-lite', alias: 'Gemini 3.1 Flash-Lite', primary: true }
         ]
       }
     ], 'google-api-key');
@@ -245,9 +245,9 @@ describe('POST /api/ai/changes', () => {
     const payload = await response.json();
 
     expect(response.status).toBe(200);
-    expect(payload.modelAlias).toBe('Gemini 2.5 Flash');
+    expect(payload.modelAlias).toBe('Gemini 3.1 Flash-Lite');
     expect(fetchMock).toHaveBeenCalledWith(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent',
       expect.objectContaining({
         method: 'POST',
         headers: expect.objectContaining({
@@ -444,6 +444,82 @@ describe('POST /api/ai/changes', () => {
     expect(payload.summary).toBe('备用模型生成问卷');
     expect(payload.modelAlias).toBe('备用 C');
     expect(payload.timedOutModels).toEqual(['主模型', '备用 A', '备用 B']);
+  });
+
+  it('switches to the next model in auto mode when the primary provider returns an upstream error', async () => {
+    setAiCatalog([
+      {
+        id: 'google',
+        alias: 'Google AI',
+        api: 'google-generate-content',
+        baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
+        apiKeyEnv: 'TEST_LOCAL_AI_KEY',
+        models: [
+          { id: 'retired-model', alias: '已下线模型', primary: true }
+        ]
+      },
+      {
+        id: 'bigmodel',
+        alias: '智谱 AI',
+        api: 'openai-completions',
+        baseUrl: 'https://open.bigmodel.cn/api/paas/v4',
+        apiKeyEnv: 'TEST_LOCAL_AI_KEY',
+        models: [
+          { id: 'glm-4-flash-250414', alias: 'GLM 备用' }
+        ]
+      }
+    ]);
+    const fetchMock = vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify({ error: { message: 'model retired' } }), { status: 404 }))
+      .mockResolvedValueOnce(buildCompletion({
+        summary: 'GLM 自动接管',
+        title: '备用模型问卷',
+        blocks: [{ type: 'title', label: '备用模型问卷', level: 1 }]
+      }));
+
+    const response = await POST(createRequest('生成一个问卷'));
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.modelAlias).toBe('GLM 备用');
+    expect(payload.summary).toBe('GLM 自动接管');
+    expect(fetchMock.mock.calls.map(([url]) => String(url))).toEqual([
+      'https://generativelanguage.googleapis.com/v1beta/models/retired-model:generateContent',
+      'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+    ]);
+  });
+
+  it('switches to the next model in auto mode when the primary response is invalid', async () => {
+    setAiCatalog([
+      {
+        id: 'primary',
+        alias: '主服务',
+        baseUrl: 'https://primary.example.test/v1',
+        apiKeyEnv: 'TEST_LOCAL_AI_KEY',
+        models: [{ id: 'primary', alias: '主模型', primary: true }]
+      },
+      {
+        id: 'backup',
+        alias: '备用服务',
+        baseUrl: 'https://backup.example.test/v1',
+        apiKeyEnv: 'TEST_LOCAL_AI_KEY',
+        models: [{ id: 'backup', alias: '备用模型' }]
+      }
+    ]);
+    vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(buildCompletion('不是 JSON'))
+      .mockResolvedValueOnce(buildCompletion({
+        summary: '备用模型接管',
+        title: '有效问卷',
+        blocks: [{ type: 'title', label: '有效问卷', level: 1 }]
+      }));
+
+    const response = await POST(createRequest('生成一个问卷'));
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.modelAlias).toBe('备用模型');
+    expect(payload.summary).toBe('备用模型接管');
   });
 
   it('returns an auto-mode timeout message after three model switches still time out', async () => {

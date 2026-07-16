@@ -119,6 +119,7 @@ async function buildAutoModelChangeSet({
 }) {
   const timedOutModels: string[] = [];
   const attempts = candidates.slice(0, AUTO_MAX_MODEL_SWITCHES + 1);
+  let hasNonTimeoutFailure = false;
 
   for (const candidate of attempts) {
     try {
@@ -141,14 +142,18 @@ async function buildAutoModelChangeSet({
       }
 
       if (error instanceof LocalAiError) {
-        throw new AiRouteError(502, GENERIC_AI_ERROR_MESSAGE);
+        hasNonTimeoutFailure = true;
+        continue;
       }
 
       throw error;
     }
   }
 
-  throw new AiRouteError(504, AUTO_TIMEOUT_ERROR_MESSAGE);
+  throw new AiRouteError(
+    hasNonTimeoutFailure ? 502 : 504,
+    hasNonTimeoutFailure ? GENERIC_AI_ERROR_MESSAGE : AUTO_TIMEOUT_ERROR_MESSAGE
+  );
 }
 
 async function buildAiChangeSet({
