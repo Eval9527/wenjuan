@@ -39,12 +39,6 @@
     "vite-tsconfig-paths": "^5.1.4",
     "vitest": "^3.0.9"
   },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "esbuild",
-      "sharp"
-    ]
-  },
   "description": "AI-first low-code survey builder with drag-and-drop editing, AI changeset previews, publishing, and analytics.",
   "homepage": "https://github.com/Eval9527/wenjuan#readme"
 }
