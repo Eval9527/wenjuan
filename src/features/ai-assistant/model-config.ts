@@ -1,4 +1,9 @@
-import { aiModelCatalog, type AiModelCatalog, type AiModelCatalogModel } from '@/features/ai-assistant/model-catalog';
+import {
+  aiModelCatalog,
+  type AiModelCatalog,
+  type AiModelCatalogModel,
+  type AiProviderApi
+} from '@/features/ai-assistant/model-catalog';
 
 let aiModelCatalogForTests: AiModelCatalog | null = null;
 
@@ -6,7 +11,7 @@ export type AiModelCandidate = {
   id: string;
   alias: string;
   providerAlias: string;
-  api: 'openai-completions';
+  api: AiProviderApi;
   baseUrl: string;
   apiKey: string;
   headers: Record<string, string>;

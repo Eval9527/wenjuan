@@ -7,10 +7,12 @@ export type AiModelCatalogModel = {
   singleTimeoutMs?: number;
 };
 
+export type AiProviderApi = 'openai-completions' | 'google-generate-content';
+
 export type AiModelCatalogProvider = {
   id: string;
   alias?: string;
-  api?: 'openai-completions';
+  api?: AiProviderApi;
   baseUrl?: string;
   baseUrlEnv?: string;
   apiKeyEnv: string;
@@ -25,17 +27,23 @@ export type AiModelCatalog = readonly AiModelCatalogProvider[];
 
 export const aiModelCatalog = [
   {
-    // Vercel/本地需要配置 WENJUAN_AI_LOCAL_BASE_URL 与 WENJUAN_AI_LOCAL_API_KEY 才会启用该 provider。
-    id: 'local',
-    alias: '本地服务',
-    api: 'openai-completions',
-    baseUrlEnv: 'WENJUAN_AI_LOCAL_BASE_URL',
-    apiKeyEnv: 'WENJUAN_AI_LOCAL_API_KEY',
-    autoTimeoutMs: 90_000,
-    singleTimeoutMs: 120_000,
+    id: 'google',
+    alias: 'Google AI',
+    api: 'google-generate-content',
+    baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
+    apiKeyEnv: 'WENJUAN_AI_GOOGLE_API_KEY',
     models: [
-      { id: 'mimo-v2-flash', alias: 'mimo-v2-flash', primary: true },
-      { id: 'mimo-v2.5', alias: 'mimo-v2.5' }
+      { id: 'gemini-2.5-flash', alias: 'Gemini 2.5 Flash', primary: true }
+    ]
+  },
+  {
+    id: 'bigmodel',
+    alias: '智谱 AI',
+    api: 'openai-completions',
+    baseUrl: 'https://open.bigmodel.cn/api/paas/v4',
+    apiKeyEnv: 'WENJUAN_AI_BIGMODEL_API_KEY',
+    models: [
+      { id: 'glm-4-flash-250414', alias: 'GLM-4-Flash-250414' }
     ]
   }
 ] as const satisfies AiModelCatalog;

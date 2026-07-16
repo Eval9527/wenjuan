@@ -4,7 +4,7 @@ import {
   getPublicAiModelOptions,
   setAiModelCatalogForTests
 } from '@/features/ai-assistant/model-config';
-import type { AiModelCatalog } from '@/features/ai-assistant/model-catalog';
+import { aiModelCatalog, type AiModelCatalog } from '@/features/ai-assistant/model-catalog';
 
 const TEST_AI_ENV_KEYS = [
   'TEST_LOCAL_AI_KEY',
@@ -38,6 +38,37 @@ function setCatalog(catalog: AiModelCatalog) {
 }
 
 describe('ai model config', () => {
+  it('ships Google Gemini as primary and the free BigModel GLM as fallback', () => {
+    setAiModelCatalogForTests(null);
+
+    const candidates = getAiModelCandidates({
+      WENJUAN_AI_GOOGLE_API_KEY: 'google-key',
+      WENJUAN_AI_BIGMODEL_API_KEY: 'bigmodel-key'
+    });
+
+    expect(aiModelCatalog).toHaveLength(2);
+    expect(candidates).toMatchObject([
+      {
+        id: 'google:gemini-2.5-flash',
+        alias: 'Gemini 2.5 Flash',
+        providerAlias: 'Google AI',
+        api: 'google-generate-content',
+        baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
+        model: 'gemini-2.5-flash',
+        primary: true
+      },
+      {
+        id: 'bigmodel:glm-4-flash-250414',
+        alias: 'GLM-4-Flash-250414',
+        providerAlias: '智谱 AI',
+        api: 'openai-completions',
+        baseUrl: 'https://open.bigmodel.cn/api/paas/v4',
+        model: 'glm-4-flash-250414',
+        primary: false
+      }
+    ]);
+  });
+
   it('loads OpenAI-compatible model candidates from the TypeScript catalog and reads only secrets from env', () => {
     setCatalog([
       {

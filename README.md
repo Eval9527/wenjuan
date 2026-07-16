@@ -68,7 +68,7 @@ DATABASE_URL=postgresql://USER:PASSWORD@HOST:PORT/DB_NAME?sslmode=require
 
 部署在 Vercel 这类 serverless 环境时，优先使用数据库服务商提供的 pooled / pooler 连接串。真实连接串、AI key 和站点地址都只放在 `.env.local` 或部署平台环境变量里。
 
-如果启用线上 AI，需要按 `src/features/ai-assistant/model-catalog.ts` 中的模型清单配置对应的环境变量。
+如果启用线上 AI，在 `.env.local` 或部署平台配置 `WENJUAN_AI_GOOGLE_API_KEY`（Gemini 2.5 Flash）和/或 `WENJUAN_AI_BIGMODEL_API_KEY`（GLM-4-Flash-250414）。同时配置时，Gemini 为主模型，GLM 为备用；密钥不要提交到 git。
 
 ### 免费数据库选择
 
@@ -173,7 +173,7 @@ Use the database name assigned by your provider or the one you created, such as 
 
 For serverless deployments such as Vercel, prefer the provider's pooled connection string when available. Keep the real connection string, AI keys, and site URL in `.env.local` or deployment environment variables only.
 
-To enable production AI providers, configure the environment variables referenced by `src/features/ai-assistant/model-catalog.ts`.
+To enable production AI providers, add `WENJUAN_AI_GOOGLE_API_KEY` (Gemini 2.5 Flash) and/or `WENJUAN_AI_BIGMODEL_API_KEY` (GLM-4-Flash-250414) to `.env.local` or your deployment environment. With both configured, Gemini is primary and GLM is the fallback. Never commit real keys.
 
 ### Free Database Options
 

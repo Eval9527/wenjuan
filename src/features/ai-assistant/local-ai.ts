@@ -49,6 +49,16 @@ const openAiChatCompletionSchema = z.object({
   })).min(1)
 });
 
+const googleGenerateContentSchema = z.object({
+  candidates: z.array(z.object({
+    content: z.object({
+      parts: z.array(z.object({
+        text: z.string().optional()
+      }))
+    }).optional()
+  })).min(1)
+});
+
 type AiSurveyDraft = z.infer<typeof aiSurveyDraftSchema>;
 type BlockDraft = z.infer<typeof blockDraftSchema>;
 
@@ -164,6 +174,76 @@ function normalizeCompletionContent(content: unknown) {
   return '';
 }
 
+function buildAiRequest(config: LocalAiConfig, prompt: string, currentDocument: SurveyDocument) {
+  if (config.api === 'google-generate-content') {
+    return {
+      url: `${config.baseUrl}/models/${encodeURIComponent(config.model)}:generateContent`,
+      init: {
+        method: 'POST',
+        headers: {
+          ...config.headers,
+          'Content-Type': 'application/json',
+          'X-goog-api-key': config.apiKey
+        },
+        body: JSON.stringify({
+          systemInstruction: {
+            parts: [{ text: buildSystemPrompt() }]
+          },
+          contents: [
+            {
+              role: 'user',
+              parts: [{ text: buildUserPrompt(prompt, currentDocument) }]
+            }
+          ],
+          generationConfig: {
+            temperature: 0.2,
+            responseMimeType: 'application/json'
+          }
+        })
+      } satisfies RequestInit
+    };
+  }
+
+  return {
+    url: `${config.baseUrl}/chat/completions`,
+    init: {
+      method: 'POST',
+      headers: {
+        ...config.headers,
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${config.apiKey}`
+      },
+      body: JSON.stringify({
+        model: config.model,
+        stream: false,
+        temperature: 0.2,
+        messages: [
+          { role: 'system', content: buildSystemPrompt() },
+          { role: 'user', content: buildUserPrompt(prompt, currentDocument) }
+        ]
+      })
+    } satisfies RequestInit
+  };
+}
+
+function parseAiResponse(config: LocalAiConfig, payload: unknown) {
+  if (config.api === 'google-generate-content') {
+    const completion = googleGenerateContentSchema.safeParse(payload);
+    if (!completion.success) {
+      throw new LocalAiError('Google AI 响应不是 generateContent 格式');
+    }
+
+    return normalizeCompletionContent(completion.data.candidates[0]?.content?.parts);
+  }
+
+  const completion = openAiChatCompletionSchema.safeParse(payload);
+  if (!completion.success) {
+    throw new LocalAiError('AI 响应不是 OpenAI-compatible chat/completions 格式');
+  }
+
+  return normalizeCompletionContent(completion.data.choices[0]?.message?.content);
+}
+
 function extractJsonObject(text: string) {
   const trimmed = text.trim();
   const fencedMatch = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
@@ -212,44 +292,26 @@ async function fetchLocalAiDraft({
   const timeout = setTimeout(() => controller.abort(), config.timeoutMs);
 
   try {
-    const response = await fetchImpl(`${config.baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        ...config.headers,
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${config.apiKey}`
-      },
-      body: JSON.stringify({
-        model: config.model,
-        stream: false,
-        temperature: 0.2,
-        messages: [
-          { role: 'system', content: buildSystemPrompt() },
-          { role: 'user', content: buildUserPrompt(prompt, currentDocument) }
-        ]
-      }),
+    const request = buildAiRequest(config, prompt, currentDocument);
+    const response = await fetchImpl(request.url, {
+      ...request.init,
       signal: controller.signal
     });
 
     if (!response.ok) {
       const detail = await response.text().catch(() => '');
-      throw new LocalAiError(`本地 AI 服务返回 ${response.status}${detail ? `：${detail.slice(0, 200)}` : ''}`, 'upstream-error');
+      throw new LocalAiError(`AI 服务返回 ${response.status}${detail ? `：${detail.slice(0, 200)}` : ''}`, 'upstream-error');
     }
 
-    const completion = openAiChatCompletionSchema.safeParse(await response.json());
-    if (!completion.success) {
-      throw new LocalAiError('本地 AI 响应不是 OpenAI-compatible chat/completions 格式');
-    }
-
-    const content = normalizeCompletionContent(completion.data.choices[0]?.message?.content);
+    const content = parseAiResponse(config, await response.json());
     if (!content.trim()) {
-      throw new LocalAiError('本地 AI 返回内容为空');
+      throw new LocalAiError('AI 返回内容为空');
     }
 
     const parsed = parseJsonFromCompletion(content);
     const draft = aiSurveyDraftSchema.safeParse(parsed);
     if (!draft.success) {
-      throw new LocalAiError('本地 AI JSON 不符合问卷草稿结构');
+      throw new LocalAiError('AI JSON 不符合问卷草稿结构');
     }
 
     return draft.data;
@@ -259,10 +321,10 @@ async function fetchLocalAiDraft({
     }
 
     if (error instanceof DOMException && error.name === 'AbortError') {
-      throw new LocalAiError(signal?.aborted ? '本地 AI 请求已中断' : '本地 AI 请求超时', signal?.aborted ? 'aborted' : 'timeout');
+      throw new LocalAiError(signal?.aborted ? 'AI 请求已中断' : 'AI 请求超时', signal?.aborted ? 'aborted' : 'timeout');
     }
 
-    throw new LocalAiError(error instanceof Error ? error.message : '本地 AI 调用失败', 'unknown');
+    throw new LocalAiError(error instanceof Error ? error.message : 'AI 调用失败', 'unknown');
   } finally {
     clearTimeout(timeout);
     signal?.removeEventListener('abort', abortUpstream);

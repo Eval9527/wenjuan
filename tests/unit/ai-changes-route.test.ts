@@ -207,6 +207,66 @@ describe('POST /api/ai/changes', () => {
     );
   });
 
+  it('calls Google generateContent and converts its candidate text into a preview changeset', async () => {
+    setAiCatalog([
+      {
+        id: 'google',
+        alias: 'Google AI',
+        api: 'google-generate-content',
+        apiKeyEnv: 'TEST_LOCAL_AI_KEY',
+        baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
+        models: [
+          { id: 'gemini-2.5-flash', alias: 'Gemini 2.5 Flash', primary: true }
+        ]
+      }
+    ], 'google-api-key');
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        candidates: [
+          {
+            content: {
+              parts: [
+                {
+                  text: JSON.stringify({
+                    summary: 'Gemini 生成问卷',
+                    title: '用户反馈',
+                    blocks: [{ type: 'title', label: '用户反馈', level: 1 }]
+                  })
+                }
+              ]
+            }
+          }
+        ]
+      })
+    } as Response);
+
+    const response = await POST(createRequest('生成用户反馈问卷'));
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.modelAlias).toBe('Gemini 2.5 Flash');
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          'Content-Type': 'application/json',
+          'X-goog-api-key': 'google-api-key'
+        })
+      })
+    );
+    const requestInit = fetchMock.mock.calls[0][1] as RequestInit;
+    expect(requestInit.headers).not.toHaveProperty('Authorization');
+    const requestBody = JSON.parse(String(requestInit.body));
+    expect(requestBody.systemInstruction.parts[0].text).toContain('问卷设计助手');
+    expect(requestBody.contents[0].parts[0].text).toContain('生成用户反馈问卷');
+    expect(requestBody.generationConfig).toMatchObject({
+      temperature: 0.2,
+      responseMimeType: 'application/json'
+    });
+  });
+
 
   it('adds a visible title block for generated empty surveys when the AI only returns a global title', async () => {
     setLocalAiConfig();
