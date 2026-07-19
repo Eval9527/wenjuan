@@ -38,7 +38,7 @@ function setCatalog(catalog: AiModelCatalog) {
 }
 
 describe('ai model config', () => {
-  it('ships free Google Gemini models before the free BigModel GLM fallback', () => {
+  it('orders high-quota free models across Google and BigModel providers', () => {
     setAiModelCatalogForTests(null);
 
     const candidates = getAiModelCandidates({
@@ -46,7 +46,7 @@ describe('ai model config', () => {
       WENJUAN_AI_BIGMODEL_API_KEY: 'bigmodel-key'
     });
 
-    expect(aiModelCatalog).toHaveLength(2);
+    expect(aiModelCatalog).toHaveLength(3);
     expect(candidates).toMatchObject([
       {
         id: 'google:gemini-3.1-flash-lite',
@@ -58,21 +58,30 @@ describe('ai model config', () => {
         primary: true
       },
       {
-        id: 'google:gemini-3.5-flash',
-        alias: 'Gemini 3.5 Flash',
-        providerAlias: 'Google AI',
-        api: 'google-generate-content',
-        baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
-        model: 'gemini-3.5-flash',
-        primary: false
-      },
-      {
         id: 'bigmodel:glm-4-flash-250414',
         alias: 'GLM-4-Flash-250414',
         providerAlias: '智谱 AI',
         api: 'openai-completions',
         baseUrl: 'https://open.bigmodel.cn/api/paas/v4',
         model: 'glm-4-flash-250414',
+        primary: false
+      },
+      {
+        id: 'gemma:gemma-4-31b-it',
+        alias: 'Gemma 4 31B',
+        providerAlias: 'Google AI',
+        api: 'google-generate-content',
+        baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
+        model: 'gemma-4-31b-it',
+        primary: false
+      },
+      {
+        id: 'gemma:gemma-4-26b-a4b-it',
+        alias: 'Gemma 4 26B',
+        providerAlias: 'Google AI',
+        api: 'google-generate-content',
+        baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
+        model: 'gemma-4-26b-a4b-it',
         primary: false
       }
     ]);

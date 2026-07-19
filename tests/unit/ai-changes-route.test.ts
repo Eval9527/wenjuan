@@ -228,6 +228,10 @@ describe('POST /api/ai/changes', () => {
             content: {
               parts: [
                 {
+                  thought: true,
+                  text: '这里是不会进入最终 JSON 的思考内容。'
+                },
+                {
                   text: JSON.stringify({
                     summary: 'Gemini 生成问卷',
                     title: '用户反馈',
@@ -263,7 +267,32 @@ describe('POST /api/ai/changes', () => {
     expect(requestBody.contents[0].parts[0].text).toContain('生成用户反馈问卷');
     expect(requestBody.generationConfig).toMatchObject({
       temperature: 0.2,
-      responseMimeType: 'application/json'
+      maxOutputTokens: 8_192,
+      thinkingConfig: {
+        thinkingLevel: 'minimal'
+      },
+      responseMimeType: 'application/json',
+      responseJsonSchema: {
+        type: 'object',
+        required: ['blocks'],
+        properties: {
+          blocks: {
+            type: 'array',
+            minItems: 1,
+            items: {
+              required: ['type'],
+              properties: {
+                type: {
+                  enum: ['title', 'paragraph', 'input', 'singleChoice', 'multiChoice']
+                },
+                options: {
+                  type: 'array'
+                }
+              }
+            }
+          }
+        }
+      }
     });
   });
 

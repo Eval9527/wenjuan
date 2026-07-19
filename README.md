@@ -68,7 +68,7 @@ DATABASE_URL=postgresql://USER:PASSWORD@HOST:PORT/DB_NAME?sslmode=require
 
 部署在 Vercel 这类 serverless 环境时，优先使用数据库服务商提供的 pooled / pooler 连接串。真实连接串、AI key 和站点地址都只放在 `.env.local` 或部署平台环境变量里。
 
-如果启用线上 AI，在 `.env.local` 或部署平台配置 `WENJUAN_AI_GOOGLE_API_KEY`（Gemini 3.1 Flash-Lite / Gemini 3.5 Flash）和/或 `WENJUAN_AI_BIGMODEL_API_KEY`（GLM-4-Flash-250414）。同时配置时，默认依次尝试 Gemini 3.1 Flash-Lite、Gemini 3.5 Flash 和 GLM；密钥不要提交到 git。
+如果启用线上 AI，在 `.env.local` 或部署平台配置 `WENJUAN_AI_GOOGLE_API_KEY`（Gemini 3.1 Flash-Lite / Gemma 4）和/或 `WENJUAN_AI_BIGMODEL_API_KEY`（GLM-4-Flash-250414）。同时配置时，默认依次尝试 Gemini 3.1 Flash-Lite、GLM、Gemma 4 31B 和 Gemma 4 26B；Google 模型使用完整 JSON Schema 约束问卷草稿输出。密钥不要提交到 git。
 
 ### 免费数据库选择
 
@@ -173,7 +173,7 @@ Use the database name assigned by your provider or the one you created, such as 
 
 For serverless deployments such as Vercel, prefer the provider's pooled connection string when available. Keep the real connection string, AI keys, and site URL in `.env.local` or deployment environment variables only.
 
-To enable production AI providers, add `WENJUAN_AI_GOOGLE_API_KEY` (Gemini 3.1 Flash-Lite / Gemini 3.5 Flash) and/or `WENJUAN_AI_BIGMODEL_API_KEY` (GLM-4-Flash-250414) to `.env.local` or your deployment environment. With both configured, Wenjuan tries Gemini 3.1 Flash-Lite, Gemini 3.5 Flash, and GLM in that order. Never commit real keys.
+To enable production AI providers, add `WENJUAN_AI_GOOGLE_API_KEY` (Gemini 3.1 Flash-Lite / Gemma 4) and/or `WENJUAN_AI_BIGMODEL_API_KEY` (GLM-4-Flash-250414) to `.env.local` or your deployment environment. With both configured, Wenjuan tries Gemini 3.1 Flash-Lite, GLM, Gemma 4 31B, and Gemma 4 26B in that order. Google models receive the complete survey draft JSON Schema. Never commit real keys.
 
 ### Free Database Options
 

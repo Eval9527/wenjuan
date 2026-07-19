@@ -53,11 +53,86 @@ const googleGenerateContentSchema = z.object({
   candidates: z.array(z.object({
     content: z.object({
       parts: z.array(z.object({
-        text: z.string().optional()
+        text: z.string().optional(),
+        thought: z.boolean().optional()
       }))
     }).optional()
   })).min(1)
 });
+
+const aiSurveyDraftJsonSchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    summary: {
+      type: 'string',
+      description: '一句简短的中文修改总结'
+    },
+    title: {
+      type: 'string',
+      description: '问卷全局标题'
+    },
+    description: {
+      type: 'string',
+      description: '可选的问卷说明'
+    },
+    submitLabel: {
+      type: 'string',
+      description: '提交按钮的中文文案'
+    },
+    blocks: {
+      type: 'array',
+      minItems: 1,
+      description: '完整的建议后问卷题目列表',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          id: { type: 'string' },
+          existingId: { type: 'string' },
+          type: {
+            type: 'string',
+            enum: ['title', 'paragraph', 'input', 'singleChoice', 'multiChoice']
+          },
+          label: { type: 'string' },
+          content: { type: 'string' },
+          level: {
+            anyOf: [
+              { type: 'integer', enum: [1, 2, 3] },
+              { type: 'string', enum: ['1', '2', '3', 'h1', 'h2', 'h3'] }
+            ]
+          },
+          align: {
+            type: 'string',
+            enum: ['left', 'center', 'right']
+          },
+          description: { type: 'string' },
+          required: { type: 'boolean' },
+          placeholder: { type: 'string' },
+          options: {
+            type: 'array',
+            items: {
+              anyOf: [
+                { type: 'string' },
+                {
+                  type: 'object',
+                  additionalProperties: false,
+                  properties: {
+                    id: { type: 'string' },
+                    text: { type: 'string' },
+                    label: { type: 'string' }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        required: ['type']
+      }
+    }
+  },
+  required: ['blocks']
+} as const;
 
 type AiSurveyDraft = z.infer<typeof aiSurveyDraftSchema>;
 type BlockDraft = z.infer<typeof blockDraftSchema>;
@@ -164,6 +239,9 @@ function normalizeCompletionContent(content: unknown) {
     return content
       .map((part) => {
         if (part && typeof part === 'object' && 'text' in part) {
+          if ('thought' in part && part.thought === true) {
+            return '';
+          }
           return typeof part.text === 'string' ? part.text : '';
         }
         return '';
@@ -197,7 +275,12 @@ function buildAiRequest(config: LocalAiConfig, prompt: string, currentDocument: 
           ],
           generationConfig: {
             temperature: 0.2,
-            responseMimeType: 'application/json'
+            maxOutputTokens: 8_192,
+            thinkingConfig: {
+              thinkingLevel: 'minimal'
+            },
+            responseMimeType: 'application/json',
+            responseJsonSchema: aiSurveyDraftJsonSchema
           }
         })
       } satisfies RequestInit
